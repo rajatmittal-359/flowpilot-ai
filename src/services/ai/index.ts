@@ -1,5 +1,5 @@
 import { getTicketByIdForUser } from "@/services/tickets"
-import { generateSuggestedReply, generateTicketSummary, generateTicketAnalysis } from "@/lib/gemini"
+import { generateTicketWorkspace } from "@/lib/gemini"
 import { getAnalysisByTicketId, upsertAnalysis, isAnalysisExpired } from "./cache"
 import type { TicketRow } from "@/types/db"
 import type { TicketAnalysisResult } from "@/types/ai"
@@ -52,21 +52,17 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
       if (!generationLocks.has(ticket.id)) {
         const bg = (async () => {
           try {
-            const [s, r, a] = await Promise.all([
-              workspace.summary ? Promise.resolve(workspace.summary) : generateTicketSummary(ticket),
-              workspace.suggestedReply ? Promise.resolve(workspace.suggestedReply) : generateSuggestedReply(ticket),
-              workspace.analysis ? Promise.resolve(workspace.analysis) : generateTicketAnalysis(ticket),
-            ])
+            const ws = await generateTicketWorkspace(ticket)
             await upsertAnalysis(ticket.id, {
-              summary: s ?? null,
-              suggested_reply: r ?? null,
-              sentiment: a?.sentiment ?? undefined,
-              urgency: a?.urgency ?? undefined,
-              recommended_priority: a?.recommendedPriority ?? undefined,
-              category: a?.category ?? undefined,
-              confidence: a?.confidence ?? undefined,
+              summary: ws.summary ?? null,
+              suggested_reply: ws.suggestedReply ?? null,
+              sentiment: ws.sentiment ?? undefined,
+              urgency: ws.urgency ?? undefined,
+              recommended_priority: ws.recommendedPriority ?? undefined,
+              category: ws.category ?? undefined,
+              confidence: ws.confidence ?? undefined,
               analyzed_at: new Date().toISOString(),
-              raw_analysis_json: a ?? null,
+              raw_analysis_json: ws ?? null,
             })
           } catch (err) {
             console.warn("[AI] background regeneration failed", err)
@@ -101,55 +97,26 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
     }
   }
 
-  const lockPromise = (async () => {
+      const lockPromise = (async () => {
     try {
-      // generate only missing pieces
-      const toGenerate: Array<Promise<any>> = []
-      const genSummary = !workspace.summary
-      const genReply = !workspace.suggestedReply
-      const genAnalysis = !workspace.analysis
-
-      if (genSummary) toGenerate.push(generateTicketSummary(ticket))
-      if (genReply) toGenerate.push(generateSuggestedReply(ticket))
-      if (genAnalysis) toGenerate.push(generateTicketAnalysis(ticket))
-
-      let results: any[] = []
+      // Unified generation: call the single workspace generator
       try {
-        results = await Promise.all(toGenerate)
+        const ws = await generateTicketWorkspace(ticket)
+        await upsertAnalysis(ticket.id, {
+          summary: ws.summary ?? null,
+          suggested_reply: ws.suggestedReply ?? null,
+          sentiment: ws.sentiment ?? undefined,
+          urgency: ws.urgency ?? undefined,
+          recommended_priority: ws.recommendedPriority ?? undefined,
+          category: ws.category ?? undefined,
+          confidence: ws.confidence ?? undefined,
+          analyzed_at: new Date().toISOString(),
+          raw_analysis_json: ws ?? null,
+        })
       } catch (err: any) {
-        // handle quota/rate limit gracefully: log and fall back
         const isRateLimit = err && ((err.status && err.status === 429) || String(err).includes("429") || String(err).toLowerCase().includes("too many requests"))
         console.warn("[AI] generation error", { ticketId: ticket.id, isRateLimit, err })
-        if (isRateLimit) {
-          // if we have some cached data return it (handled by outer code after lock resolves)
-        }
-        // continue: we'll upsert whatever partial results we do have
-      }
-
-      // Map results back into fields in order
-      let ri = 0
-      const out: any = {}
-      if (genSummary) {
-        out.summary = results[ri++] ?? null
-      }
-      if (genReply) {
-        out.suggested_reply = results[ri++] ?? null
-      }
-      if (genAnalysis) {
-        const a = results[ri++] ?? null
-        if (a) {
-          out.sentiment = a.sentiment
-          out.urgency = a.urgency
-          out.recommended_priority = a.recommendedPriority
-          out.category = a.category
-          out.confidence = a.confidence
-          out.raw_analysis_json = a
-        }
-      }
-
-      if (Object.keys(out).length > 0) {
-        out.analyzed_at = new Date().toISOString()
-        await upsertAnalysis(ticket.id, out)
+        // don't rethrow; let callers use cached or fallback
       }
     } catch (err) {
       console.error("[AI] generation lock failed", err)
@@ -192,25 +159,22 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
 export async function regenerateTicketAnalysisForUser(userId: number, ticketId: number) {
   const ticket = await getTicketByIdForUser(userId, ticketId)
   if (!ticket) return null
-
-  const [summary, suggestedReply, analysis] = await Promise.all([
-    generateTicketSummary(ticket),
-    generateSuggestedReply(ticket),
-    generateTicketAnalysis(ticket),
-  ])
+  // Force unified workspace generation and persist
+  const ws = await generateTicketWorkspace(ticket)
 
   const row = await upsertAnalysis(ticket.id, {
-    summary,
-    suggested_reply: suggestedReply,
-    sentiment: analysis.sentiment,
-    urgency: analysis.urgency,
-    recommended_priority: analysis.recommendedPriority,
-    category: analysis.category,
-    confidence: analysis.confidence,
+    summary: ws.summary ?? null,
+    suggested_reply: ws.suggestedReply ?? null,
+    sentiment: ws.sentiment ?? undefined,
+    urgency: ws.urgency ?? undefined,
+    recommended_priority: ws.recommendedPriority ?? undefined,
+    category: ws.category ?? undefined,
+    confidence: ws.confidence ?? undefined,
     analyzed_at: new Date().toISOString(),
+    raw_analysis_json: ws ?? null,
   })
 
-  return { summary, suggestedReply, analysis, row }
+  return { summary: ws.summary, suggestedReply: ws.suggestedReply, analysis: { sentiment: ws.sentiment, urgency: ws.urgency, recommendedPriority: ws.recommendedPriority, category: ws.category, confidence: ws.confidence }, row }
 }
 
 // Backwards-compatible helpers for existing API routes

@@ -1,9 +1,11 @@
 import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from "@google/generative-ai"
 import { buildTicketAnalysisPrompt } from "@/lib/ai-prompts/analysis-prompts"
+import { buildTicketWorkspacePrompt } from "@/lib/ai-prompts/workspace-prompt"
 import { buildSuggestedReplyPrompt } from "@/lib/ai-prompts/reply-prompts"
 import { buildTicketSummaryPrompt } from "@/lib/ai-prompts/summary-prompts"
 import type { TicketRow } from "@/types/db"
 import { ticketAnalysisSchema } from "@/types/ai"
+import { ticketWorkspaceSchema } from "@/types/ai"
 
 const SUPPORTED_GEMINI_MODELS = [
   "gemini-3.5-flash",
@@ -96,14 +98,14 @@ async function generateGeminiText(prompt: string) {
   let lastError: unknown = null
 
   for (const model of SUPPORTED_GEMINI_MODELS) {
-    console.log(`[Gemini] trying model: ${model}`)
+    if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] trying model: ${model}`)
     const genieModel = createGeminiModel(model)
 
     try {
       const result = await genieModel.generateContent(prompt, {
         timeout: 60000,
       })
-      console.log(`[Gemini] request succeeded with model: ${model}`)
+      if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] request succeeded with model: ${model}`)
       const raw = result.response.text()
       return cleanAiText(await raw)
     } catch (error) {
@@ -114,7 +116,7 @@ async function generateGeminiText(prompt: string) {
         throw error
       }
 
-      console.log(`[Gemini] falling back from model ${model} to next supported model.`)
+      if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] falling back from model ${model} to next supported model.`)
     }
   }
 
@@ -227,4 +229,49 @@ export async function generateSuggestedReply(ticket: TicketRow) {
 export async function generateTicketAnalysis(ticket: TicketRow) {
   const raw = await generateGeminiText(buildTicketAnalysisPrompt(ticket))
   return parseTicketAnalysisResponse(raw)
+}
+
+export async function generateTicketWorkspace(ticket: TicketRow) {
+  const raw = await generateGeminiText(buildTicketWorkspacePrompt(ticket))
+
+  // log in dev
+  if (process.env.NODE_ENV !== "production") console.debug("[Gemini] raw workspace response:", raw)
+
+  const cleaned = stripCodeFences(raw || "").trim().replace(/[“”‘’]/g, '"')
+
+  // try to extract the first JSON object
+  const candidates = cleaned.match(/\{[\s\S]*?\}/g) || []
+  for (const c of candidates) {
+    try {
+      const parsed = JSON.parse(c)
+      const z = ticketWorkspaceSchema.safeParse(parsed)
+      if (z.success) return z.data
+    } catch (e) {
+      continue
+    }
+  }
+
+  // fallback: try broad slice
+  const firstIndex = cleaned.indexOf("{")
+  const lastIndex = cleaned.lastIndexOf("}")
+  if (firstIndex !== -1 && lastIndex > firstIndex) {
+    try {
+      const parsed = JSON.parse(cleaned.slice(firstIndex, lastIndex + 1))
+      const z = ticketWorkspaceSchema.safeParse(parsed)
+      if (z.success) return z.data
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // return fallback workspace values rather than throwing
+  return {
+    summary: "",
+    suggestedReply: "",
+    sentiment: "unknown",
+    urgency: "medium",
+    category: "general",
+    confidence: 0.5,
+    recommendedPriority: "medium",
+  }
 }

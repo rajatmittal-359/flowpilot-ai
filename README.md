@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FlowPilot AI
 
-## Getting Started
+FlowPilot AI is a demo SaaS-style support workspace showcasing AI-assisted ticket summaries, suggested replies, and structured analysis. It's designed as a portfolio-ready project demonstrating an LLM-backed workflow with cache-first behavior, migrations, and production-safe fallbacks.
 
-First, run the development server:
+## Features
+
+- Unified AI workspace: summary, suggested reply, structured analysis
+- DB-backed cache with SQL migrations
+- Single-generator prompt to reduce LLM calls and quota usage
+- Robust parsing and safe fallbacks (no 500s on malformed LLM output)
+- Regenerate cooldown and cached indicators in UI
+- Sonner toasts for user feedback
+
+## Tech stack
+
+- Next.js 14 App Router (TypeScript)
+- Tailwind CSS + shadcn/ui components
+- PostgreSQL via `pg`
+- Zod for runtime validation
+- Gemini (`@google/generative-ai`) server-side
+
+## Quickstart (local)
+
+1. Copy environment example and set variables:
+
+```bash
+cp .env.example .env.local
+# set DATABASE_URL, GEMINI_API_KEY, SESSION_SECRET
+```
+
+2. Run DB migrations:
+
+```bash
+npm run db:migrate
+```
+
+3. Run development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Build for production:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment
 
-## Learn More
+- Vercel is recommended for quick deployment. Ensure environment variables are set in the project settings.
+- For production scale, consider running migrations during CI/CD, and using Redis for cross-instance generation locks.
 
-To learn more about Next.js, take a look at the following resources:
+## Production Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- The app validates and caches AI outputs; regeneration is rate-limited by design to protect API quota.
+- Logs are quieted in production; enable DEBUG via `NODE_ENV=development`.
+- Replace console logs with a structured logger for observability in larger deployments.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

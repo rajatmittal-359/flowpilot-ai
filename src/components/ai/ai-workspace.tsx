@@ -7,6 +7,7 @@ import { AiLoadingState } from "./ai-loading-state"
 import { AiErrorState } from "./ai-error-state"
 import { AiConfidenceIndicator } from "./ai-confidence-indicator"
 import { AiBadge } from "./ai-badge"
+import { toast } from "sonner"
 
 type Analysis = {
   sentiment: string
@@ -62,6 +63,10 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId])
 
+  const cooldownMs = 5 * 60 * 1000 // 5 minutes
+  const analyzedAtMs = analyzedAt ? Date.parse(analyzedAt) : 0
+  const isInCooldown = Boolean(analyzedAt) && Date.now() - analyzedAtMs < cooldownMs
+
   async function regenerate(kind: "analysis" | "summary" | "reply") {
     setIsRegenerating(true)
     setError(null)
@@ -98,8 +103,9 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
           <CardTitle>AI Summary</CardTitle>
           <div className="flex items-center gap-2">
             {analyzedAt ? <AiBadge label={`Analyzed ${new Date(analyzedAt).toLocaleString()}`} /> : null}
-            <Button size="sm" onClick={() => regenerate("summary")} disabled={isRegenerating}>
-              Regenerate
+            {analyzedAt ? <AiBadge label="Cached result" /> : null}
+            <Button size="sm" onClick={async () => { await regenerate("summary"); toast.success("Summary regenerated") }} disabled={isRegenerating || isInCooldown}>
+              {isInCooldown ? "Cooldown" : "Regenerate"}
             </Button>
           </div>
         </CardHeader>
@@ -116,8 +122,11 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
         <CardHeader className="border-b flex items-center justify-between gap-3">
           <CardTitle>Suggested reply</CardTitle>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => regenerate("reply")} disabled={isRegenerating}>
-              Regenerate
+            <Button size="sm" onClick={async () => { await regenerate("reply"); toast.success("Reply regenerated") }} disabled={isRegenerating || isInCooldown}>
+              {isInCooldown ? "Cooldown" : "Regenerate"}
+            </Button>
+            <Button size="sm" onClick={async () => { if (reply) { await navigator.clipboard.writeText(reply); toast.success("Copied reply to clipboard") } }} disabled={!reply}>
+              Copy
             </Button>
           </div>
         </CardHeader>
@@ -135,7 +144,7 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
           <CardTitle>AI Analysis</CardTitle>
           <div className="flex items-center gap-2">
             {analysis ? <AiConfidenceIndicator confidence={analysis.confidence} /> : null}
-            <Button size="sm" onClick={() => regenerate("analysis")} disabled={isRegenerating}>
+            <Button size="sm" onClick={async () => { await regenerate("analysis"); toast.success("Analysis regenerated") }} disabled={isRegenerating}>
               Regenerate
             </Button>
           </div>

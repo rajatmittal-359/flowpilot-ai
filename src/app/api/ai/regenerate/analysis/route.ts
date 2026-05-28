@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { getSessionFromRequest } from "@/lib/auth"
 import { getTicketByIdForUser } from "@/services/tickets"
-import { generateTicketAnalysis, generateTicketSummary, generateSuggestedReply } from "@/lib/gemini"
+import { generateTicketWorkspace } from "@/lib/gemini"
 import { upsertAnalysis } from "@/services/ai/cache"
 import { ticketIdSchema } from "@/types/ai"
 
@@ -18,22 +18,18 @@ export async function POST(req: NextRequest) {
     const ticket = await getTicketByIdForUser(session.userId, parsed.data.ticketId)
     if (!ticket) return NextResponse.json({ message: "Ticket not found." }, { status: 404 })
 
-    // Force fresh generation for all AI outputs and update cache
-    const [summary, suggested_reply, analysis] = await Promise.all([
-      generateTicketSummary(ticket),
-      generateSuggestedReply(ticket),
-      generateTicketAnalysis(ticket),
-    ])
-
+    // Force fresh unified generation and update cache
+    const ws = await generateTicketWorkspace(ticket)
     await upsertAnalysis(ticket.id, {
-      summary,
-      suggested_reply,
-      sentiment: analysis.sentiment,
-      urgency: analysis.urgency,
-      recommended_priority: analysis.recommendedPriority,
-      category: analysis.category,
-      confidence: analysis.confidence,
+      summary: ws.summary ?? null,
+      suggested_reply: ws.suggestedReply ?? null,
+      sentiment: ws.sentiment ?? undefined,
+      urgency: ws.urgency ?? undefined,
+      recommended_priority: ws.recommendedPriority ?? undefined,
+      category: ws.category ?? undefined,
+      confidence: ws.confidence ?? undefined,
       analyzed_at: new Date().toISOString(),
+      raw_analysis_json: ws ?? null,
     })
 
     return NextResponse.json({ message: "AI analysis regenerated." })

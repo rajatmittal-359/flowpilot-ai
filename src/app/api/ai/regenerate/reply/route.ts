@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { getSessionFromRequest } from "@/lib/auth"
 import { getTicketByIdForUser } from "@/services/tickets"
-import { generateSuggestedReply } from "@/lib/gemini"
+import { generateTicketWorkspace } from "@/lib/gemini"
 import { upsertAnalysis } from "@/services/ai/cache"
 import { ticketIdSchema } from "@/types/ai"
 
@@ -18,14 +18,15 @@ export async function POST(req: NextRequest) {
     const ticket = await getTicketByIdForUser(session.userId, parsed.data.ticketId)
     if (!ticket) return NextResponse.json({ message: "Ticket not found." }, { status: 404 })
 
-    const suggested_reply = await generateSuggestedReply(ticket)
+    const ws = await generateTicketWorkspace(ticket)
 
     await upsertAnalysis(ticket.id, {
-      suggested_reply,
+      suggested_reply: ws.suggestedReply ?? null,
       analyzed_at: new Date().toISOString(),
+      raw_analysis_json: ws ?? null,
     })
 
-    return NextResponse.json({ message: "Suggested reply regenerated.", suggested_reply })
+    return NextResponse.json({ message: "Suggested reply regenerated.", suggested_reply: ws.suggestedReply })
   } catch (error) {
     console.error("AI regenerate reply error", error)
     return NextResponse.json({ message: "Unable to regenerate suggested reply." }, { status: 500 })
