@@ -39,3 +39,26 @@ export async function getDashboardStatsForUser(userId: number) {
     [userId]
   )
 }
+
+export async function getTicketByIdForUser(userId: number, ticketId: number) {
+  return queryOne<TicketRow>(
+    `SELECT id, title, description, status, priority, created_by, assigned_to, created_at
+     FROM tickets
+     WHERE id = $1 AND created_by = $2`,
+    [ticketId, userId]
+  )
+}
+
+export async function updateTicketStatusForUser(
+  userId: number,
+  ticketId: number,
+  status: TicketRow["status"]
+) {
+  return queryOne<TicketRow>(
+    `UPDATE tickets
+     SET status = $1
+     WHERE id = $2 AND created_by = $3
+     RETURNING id, title, description, status, priority, created_by, assigned_to, created_at`,
+    [status, ticketId, userId]
+  )
+}

@@ -6,4 +6,9 @@ export const createTicketSchema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]),
 })
 
+export const updateTicketStatusSchema = z.object({
+  status: z.enum(["open", "in_progress", "resolved"]),
+})
+
 export type CreateTicketBody = z.infer<typeof createTicketSchema>
+export type UpdateTicketStatusBody = z.infer<typeof updateTicketStatusSchema>
