@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
@@ -10,6 +11,8 @@ import { signupSchema, type SignupFormValues } from "@/types/auth"
 
 export function SignupForm() {
   const [formError, setFormError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
+  const router = useRouter()
   const {
     register,
     handleSubmit,
@@ -26,9 +29,29 @@ export function SignupForm() {
 
   async function onSubmit(data: SignupFormValues) {
     setFormError("")
+    setSuccessMessage("")
     try {
-      await Promise.resolve()
-      console.log("Signup attempt", data)
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          password: data.password,
+        }),
+      })
+
+      const payload = await response.json()
+
+      if (!response.ok) {
+        setFormError(payload?.message ?? "Unable to create account. Please try again.")
+        return
+      }
+
+      setSuccessMessage("Account created successfully. Redirecting to login...")
+      window.setTimeout(() => router.push("/login"), 900)
     } catch (error) {
       setFormError("We could not create your account. Please verify your information and try again.")
     }
@@ -107,6 +130,12 @@ export function SignupForm() {
       {formError ? (
         <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {formError}
+        </div>
+      ) : null}
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-100 px-4 py-3 text-sm text-emerald-900">
+          {successMessage}
         </div>
       ) : null}
 
