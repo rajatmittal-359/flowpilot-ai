@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
@@ -10,6 +11,7 @@ import { loginSchema, type LoginFormValues } from "@/types/auth"
 
 export function LoginForm() {
   const [formError, setFormError] = useState("")
+  const router = useRouter()
   const {
     register,
     handleSubmit,
@@ -24,11 +26,26 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginFormValues) {
     setFormError("")
+
     try {
-      await Promise.resolve()
-      console.log("Login attempt", data)
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      const payload = await response.json()
+
+      if (!response.ok) {
+        setFormError(payload?.message ?? "Unable to sign in. Please try again.")
+        return
+      }
+
+      router.push("/dashboard")
     } catch (error) {
-      setFormError("We could not sign you in. Please check your credentials and try again.")
+      setFormError("Unable to sign in. Please check your connection and try again.")
     }
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { hash } from "bcryptjs"
 
 import { query, queryOne } from "@/db/index"
+import { hashPassword } from "@/lib/auth"
 import { signupRequestSchema } from "@/types/auth"
 
 export async function POST(req: Request) {
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         {
-          message: parsed.error.errors[0]?.message ?? "Invalid signup payload",
+          message: parsed.error.issues[0]?.message ?? "Invalid signup payload",
         },
         { status: 400 }
       )
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const hashedPassword = await hash(password, 12)
+    const hashedPassword = await hashPassword(password)
 
     await query(
       "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)",

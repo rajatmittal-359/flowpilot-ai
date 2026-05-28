@@ -15,10 +15,9 @@ export type StatCardProps = {
   className?: string
 }
 
-const trendToneClass: Record<
-  NonNullable<StatCardProps["trend"]>["tone"],
-  string
-> = {
+type TrendTone = "neutral" | "positive" | "negative"
+
+const trendToneClass: Record<TrendTone, string> = {
   neutral: "text-muted-foreground",
   positive: "text-emerald-600 dark:text-emerald-400",
   negative: "text-rose-600 dark:text-rose-400",
