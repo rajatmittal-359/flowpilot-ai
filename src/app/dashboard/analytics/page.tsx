@@ -1,6 +1,30 @@
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getCurrentUserFromToken } from "@/services/auth"
+import { getDashboardStatsForUser } from "@/services/tickets"
 
-export default function DashboardAnalyticsPage() {
+export default async function DashboardAnalyticsPage() {
+  const cookiesStore = await cookies()
+  const token = cookiesStore.get("flowpilot_session")?.value
+  const user = await getCurrentUserFromToken(token)
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const stats =
+    (await getDashboardStatsForUser(user.id)) ?? {
+      total: 0,
+      open_tickets: 0,
+      resolved_tickets: 0,
+      high_priority_tickets: 0,
+      ai_analyzed_tickets: 0,
+    }
+
+  const resolvedRate = stats.total ? Math.round((stats.resolved_tickets / stats.total) * 100) : 0
+  const aiCoverage = stats.total ? Math.round((stats.ai_analyzed_tickets / stats.total) * 100) : 0
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-1">
@@ -45,10 +69,10 @@ export default function DashboardAnalyticsPage() {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {[
-              { label: "CSAT", value: "93 %" },
-              { label: "Avg. response", value: "12h" },
-              { label: "Resolved", value: "430" },
-              { label: "Backlog", value: "14" },
+              { label: "Total tickets", value: String(stats.total) },
+              { label: "Resolved rate", value: `${resolvedRate}%` },
+              { label: "High priority", value: String(stats.high_priority_tickets) },
+              { label: "AI-ready tickets", value: `${stats.ai_analyzed_tickets} (${aiCoverage}%)` },
             ].map((metric) => (
               <div key={metric.label} className="rounded-2xl border bg-background p-4">
                 <p className="text-sm text-muted-foreground">{metric.label}</p>
@@ -61,11 +85,18 @@ export default function DashboardAnalyticsPage() {
         <Card className="shadow-sm">
           <CardHeader className="border-b">
             <CardTitle>Insights</CardTitle>
-            <CardDescription>Future analytics for teams and operational forecasting.</CardDescription>
+            <CardDescription>Early analytics for support workload and AI readiness.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-2xl border border-dashed bg-muted/40 p-6 text-sm text-muted-foreground">
-              Placeholder for analytical insights and trend analysis.
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border/80 bg-background p-4">
+                <p className="text-sm text-muted-foreground">Open tickets</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{stats.open_tickets}</p>
+              </div>
+              <div className="rounded-2xl border border-border/80 bg-background p-4">
+                <p className="text-sm text-muted-foreground">Tickets ready for AI analysis</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{stats.ai_analyzed_tickets}</p>
+              </div>
             </div>
           </CardContent>
         </Card>

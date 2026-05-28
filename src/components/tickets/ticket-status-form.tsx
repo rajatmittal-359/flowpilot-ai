@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import type { TicketRow } from "@/types/db"
@@ -17,7 +17,7 @@ export function TicketStatusForm({ ticket }: { ticket: TicketRow }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setMessage("")
 

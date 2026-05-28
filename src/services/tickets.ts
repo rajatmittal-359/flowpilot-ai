@@ -6,6 +6,7 @@ export type TicketStats = {
   open_tickets: number
   resolved_tickets: number
   high_priority_tickets: number
+  ai_analyzed_tickets: number
 }
 
 export async function createTicket(
@@ -33,7 +34,8 @@ export async function getDashboardStatsForUser(userId: number) {
       COUNT(*)::int AS total,
       SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)::int AS open_tickets,
       SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END)::int AS resolved_tickets,
-      SUM(CASE WHEN priority IN ('high', 'urgent') THEN 1 ELSE 0 END)::int AS high_priority_tickets
+      SUM(CASE WHEN priority IN ('high', 'urgent') THEN 1 ELSE 0 END)::int AS high_priority_tickets,
+      SUM(CASE WHEN description IS NOT NULL AND description <> '' THEN 1 ELSE 0 END)::int AS ai_analyzed_tickets
     FROM tickets
     WHERE created_by = $1`,
     [userId]

@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets/ticket-badges"
 import { TicketStatusForm } from "@/components/tickets/ticket-status-form"
+import { AiTicketAnalysisPanel } from "@/components/ai/ai-ticket-analysis-panel"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { getCurrentUserFromToken } from "@/services/auth"
@@ -102,6 +103,7 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
 
         <div className="space-y-4">
           <TicketStatusForm ticket={ticket as TicketRow} />
+          <AiTicketAnalysisPanel ticketId={ticket.id} />
 
           <Card className="shadow-sm">
             <CardHeader className="border-b">

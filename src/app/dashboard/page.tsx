@@ -57,6 +57,7 @@ export default async function DashboardPage() {
       open_tickets: 0,
       resolved_tickets: 0,
       high_priority_tickets: 0,
+      ai_analyzed_tickets: 0,
     }
   const tickets = await getTicketsForUser(user.id)
 
@@ -97,6 +98,13 @@ export default async function DashboardPage() {
           hint="Urgent or high priority tickets"
           icon={<TrendingUpIcon className="size-4" />}
           trend={{ label: "Prioritize these", tone: "neutral" }}
+        />
+        <StatCard
+          label="AI analyzed"
+          value={String(stats.ai_analyzed_tickets)}
+          hint="Tickets ready for AI insights"
+          icon={<BotIcon className="size-4" />}
+          trend={{ label: "Support context", tone: "positive" }}
         />
       </section>
 
