@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import { TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets/ticket-badges"
 import { TicketStatusForm } from "@/components/tickets/ticket-status-form"
 import { AiTicketAnalysisPanel } from "@/components/ai/ai-ticket-analysis-panel"
+import { AiWorkspace } from "@/components/ai/ai-workspace"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { getCurrentUserFromToken } from "@/services/auth"
@@ -21,21 +22,22 @@ function formatDate(dateString: string) {
 }
 
 interface DashboardTicketDetailsPageProps {
-  params: {
+  params: Promise<{
     ticketId: string
-  }
+  }>
 }
 
 export default async function DashboardTicketDetailsPage({ params }: DashboardTicketDetailsPageProps) {
+  const resolvedParams = await params
   const cookiesStore = await cookies()
-  const token = cookiesStore.get(SESSION_COOKIE_NAME)?.value
+  const token = cookiesStore.get?.(SESSION_COOKIE_NAME)?.value ?? cookiesStore.get?.(String(SESSION_COOKIE_NAME))?.value
   const user = await getCurrentUserFromToken(token)
 
   if (!user) {
     redirect("/login")
   }
 
-  const ticketId = Number(params.ticketId)
+  const ticketId = Number(resolvedParams.ticketId)
   if (Number.isNaN(ticketId)) {
     return notFound()
   }
@@ -103,7 +105,7 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
 
         <div className="space-y-4">
           <TicketStatusForm ticket={ticket as TicketRow} />
-          <AiTicketAnalysisPanel ticketId={ticket.id} />
+          <AiWorkspace ticketId={ticket.id} />
 
           <Card className="shadow-sm">
             <CardHeader className="border-b">

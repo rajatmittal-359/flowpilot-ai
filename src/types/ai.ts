@@ -5,10 +5,10 @@ export const ticketIdSchema = z.object({
 })
 
 export const ticketAnalysisSchema = z.object({
-  sentiment: z.enum(["negative", "neutral", "positive"]),
+  sentiment: z.enum(["negative", "neutral", "positive", "unknown"]),
   urgency: z.enum(["low", "medium", "high"]),
   recommendedPriority: z.enum(["low", "medium", "high", "urgent"]),
-  category: z.enum(["authentication", "billing", "technical", "onboarding", "account", "performance", "other"]),
+  category: z.enum(["authentication", "billing", "technical", "onboarding", "account", "performance", "other", "general"]),
   confidence: z.number().min(0).max(1),
 })
 

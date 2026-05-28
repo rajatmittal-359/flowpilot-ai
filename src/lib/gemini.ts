@@ -104,7 +104,8 @@ async function generateGeminiText(prompt: string) {
         timeout: 60000,
       })
       console.log(`[Gemini] request succeeded with model: ${model}`)
-      return result.response.text()
+      const raw = result.response.text()
+      return cleanAiText(await raw)
     } catch (error) {
       logGeminiError(model, error)
       lastError = error
@@ -124,20 +125,95 @@ async function generateGeminiText(prompt: string) {
   )
 }
 
+function cleanAiText(raw: string) {
+  if (!raw) return ""
+  let text = raw
+
+  // remove common markdown headings and badges
+  text = text.replace(/^\s*#{1,6}\s*/gm, "")
+  text = text.replace(/\*\*(.*?)\*\*/g, "$1")
+
+  // convert different bullet markers to a consistent dash
+  text = text.replace(/^[\s]*[-*•]\s+/gm, "- ")
+
+  // collapse excessive blank lines to single blank line
+  text = text.replace(/\n{3,}/g, "\n\n")
+
+  // trim
+  text = text.trim()
+
+  return text
+}
+
+function stripCodeFences(text: string) {
+  // remove triple-backtick blocks and inline code markers
+  let t = text.replace(/```(?:[\w+-]*)?\n?[\s\S]*?```/g, (m) => {
+    // strip the fences but keep inner content to allow extraction
+    return m.replace(/```(?:[\w+-]*)?\n?/, "").replace(/```$/, "")
+  })
+  t = t.replace(/`([^`]+)`/g, "$1")
+  return t
+}
+
 function parseTicketAnalysisResponse(raw: string) {
-  const normalized = raw.trim().replace(/[“”‘’]/g, '"')
-  const jsonMatch = normalized.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    throw new Error("AI analysis did not return valid JSON.")
+  const dev = process.env.NODE_ENV !== "production"
+
+  if (dev) {
+    console.debug("[Gemini] raw analysis response:", raw)
   }
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0])
-    const result = ticketAnalysisSchema.parse(parsed)
-    return result
-  } catch (error) {
-    throw new Error(`Unable to parse AI analysis result: ${String(error)}`)
+  const cleaned = stripCodeFences(raw || "").trim().replace(/[“”‘’]/g, '"')
+
+  // try to find JSON object candidates (non-greedy)
+  const candidates = cleaned.match(/\{[\s\S]*?\}/g) || []
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      const parsedZ = ticketAnalysisSchema.safeParse(parsed)
+      if (parsedZ.success) {
+        if (dev) console.info("[Gemini] parsed analysis successfully")
+        return parsedZ.data
+      }
+      // if schema fails, continue to next candidate
+      if (dev) console.warn("[Gemini] candidate failed schema validation", parsedZ.error.issues)
+    } catch (e) {
+      if (dev) console.warn("[Gemini] candidate JSON.parse failed, trying next candidate", String(e))
+      continue
+    }
   }
+
+  // As a last-ditch attempt, try to parse between the first { and last }
+  const firstIndex = cleaned.indexOf("{")
+  const lastIndex = cleaned.lastIndexOf("}")
+  if (firstIndex !== -1 && lastIndex !== -1 && lastIndex > firstIndex) {
+    const slice = cleaned.slice(firstIndex, lastIndex + 1)
+    try {
+      const parsed = JSON.parse(slice)
+      const parsedZ = ticketAnalysisSchema.safeParse(parsed)
+      if (parsedZ.success) {
+        if (dev) console.info("[Gemini] parsed analysis via broad slice")
+        return parsedZ.data
+      }
+      if (dev) console.warn("[Gemini] broad slice failed schema", parsedZ.error.issues)
+    } catch (e) {
+      if (dev) console.warn("[Gemini] broad slice JSON.parse failed", String(e))
+    }
+  }
+
+  // If we couldn't parse, return a safe fallback (do not throw)
+  const fallback = {
+    sentiment: "unknown" as const,
+    urgency: "medium" as const,
+    recommendedPriority: "medium" as const,
+    category: "general" as const,
+    confidence: 0.5,
+  }
+
+  console.warn("[Gemini] Failed to parse analysis response; using fallback analysis.")
+  if (dev) console.debug("[Gemini] cleaned raw response:", cleaned)
+
+  return fallback
 }
 
 export async function generateTicketSummary(ticket: TicketRow) {
