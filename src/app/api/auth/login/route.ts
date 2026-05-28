@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { authenticateUser } from "@/services/auth"
+import { createSessionToken, setSessionCookie } from "@/lib/auth"
 import { loginSchema } from "@/types/auth"
 
 export async function POST(req: Request) {
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
       )
     }
 
-    return NextResponse.json(
+    const token = await createSessionToken(user.id)
+    const response = NextResponse.json(
       {
         message: "Login successful.",
         user: {
@@ -37,6 +39,9 @@ export async function POST(req: Request) {
       },
       { status: 200 }
     )
+
+    setSessionCookie(response, token)
+    return response
   } catch (error) {
     console.error("Login API error", error)
     return NextResponse.json(

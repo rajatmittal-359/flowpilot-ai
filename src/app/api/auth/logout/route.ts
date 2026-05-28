@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 
-export async function POST() {
-  return NextResponse.json(
-    { message: "Logout endpoint ready." },
-    { status: 200 }
-  )
+import { clearSessionCookie } from "@/lib/auth"
+
+export async function POST(req: Request) {
+  const response = NextResponse.redirect(new URL("/login", req.url))
+  clearSessionCookie(response)
+  return response
 }
