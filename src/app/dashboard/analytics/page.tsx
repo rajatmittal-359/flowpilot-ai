@@ -82,60 +82,71 @@ export default async function DashboardAnalyticsPage() {
       </section>
 
       {/* Key metrics cards */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Tickets</p>
-                <p className="text-3xl font-bold mt-2">{metrics.total_tickets}</p>
-              </div>
-              <ActivityIcon className="size-8 text-slate-300" />
+          <CardHeader className="flex items-center justify-between gap-4 p-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Total tickets</p>
+              <p className="text-xs text-muted-foreground">All tickets you’ve created</p>
             </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <ActivityIcon className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-6 pb-6">
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{metrics.total_tickets}</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Open</p>
-                <p className="text-3xl font-bold mt-2">{metrics.open_tickets}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {metrics.total_tickets > 0
-                    ? Math.round((metrics.open_tickets / metrics.total_tickets) * 100)
-                    : 0}
-                  % of total
-                </p>
-              </div>
-              <TrendingDownIcon className="size-8 text-blue-300" />
+          <CardHeader className="flex items-center justify-between gap-4 p-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Open tickets</p>
+              <p className="text-xs text-muted-foreground">Active work items</p>
             </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+              <TrendingDownIcon className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-6 pb-6">
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{metrics.open_tickets}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {metrics.total_tickets > 0
+                ? Math.round((metrics.open_tickets / metrics.total_tickets) * 100)
+                : 0}% of total
+            </p>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Resolved</p>
-                <p className="text-3xl font-bold mt-2">{metrics.resolved_tickets}</p>
-                <p className="text-xs text-muted-foreground mt-1">{metrics.resolution_percentage}% completion</p>
-              </div>
-              <TrendingUpIcon className="size-8 text-green-300" />
+          <CardHeader className="flex items-center justify-between gap-4 p-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Resolved tickets</p>
+              <p className="text-xs text-muted-foreground">Closed support requests</p>
             </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <TrendingUpIcon className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-6 pb-6">
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{metrics.resolved_tickets}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{metrics.resolution_percentage}% completion</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">AI Coverage</p>
-                <p className="text-3xl font-bold mt-2">{metrics.ai_coverage_percentage}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{metrics.ai_analyzed_tickets} analyzed</p>
-              </div>
-              <BarChart3Icon className="size-8 text-purple-300" />
+          <CardHeader className="flex items-center justify-between gap-4 p-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">AI coverage</p>
+              <p className="text-xs text-muted-foreground">Tickets with AI analysis</p>
             </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+              <BarChart3Icon className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-6 pb-6">
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{metrics.ai_coverage_percentage}%</p>
+            <p className="mt-2 text-sm text-muted-foreground">{metrics.ai_analyzed_tickets} tickets</p>
           </CardContent>
         </Card>
       </section>

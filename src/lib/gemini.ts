@@ -24,6 +24,10 @@ function getGeminiApiKey() {
   return apiKey
 }
 
+const GEMINI_REQUEST_TIMEOUT_MS = 20000
+const GEMINI_RETRY_DELAY_MS = 500
+const GEMINI_RETRY_ATTEMPTS = 2
+
 function createGeminiModel(model: GeminiModelName) {
   const apiKey = getGeminiApiKey()
   const ai = new GoogleGenerativeAI(apiKey)
@@ -37,7 +41,7 @@ function createGeminiModel(model: GeminiModelName) {
       },
     },
     {
-      timeout: 60000,
+      timeout: GEMINI_REQUEST_TIMEOUT_MS,
       apiVersion: "v1",
     }
   )
@@ -94,6 +98,26 @@ function isModelCompatibilityError(error: unknown) {
   ].some((term) => message.includes(term))
 }
 
+function isRetryableGeminiError(error: unknown) {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message?: string }).message).toLowerCase()
+      : String(error).toLowerCase()
+
+  return [
+    "429",
+    "rate limit",
+    "timeout",
+    "temporary",
+    "temporarily unavailable",
+    "timed out",
+  ].some((term) => message.includes(term))
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function generateGeminiText(prompt: string) {
   let lastError: unknown = null
 
@@ -101,22 +125,45 @@ async function generateGeminiText(prompt: string) {
     if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] trying model: ${model}`)
     const genieModel = createGeminiModel(model)
 
-    try {
-      const result = await genieModel.generateContent(prompt, {
-        timeout: 60000,
-      })
-      if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] request succeeded with model: ${model}`)
-      const raw = result.response.text()
-      return cleanAiText(await raw)
-    } catch (error) {
-      logGeminiError(model, error)
-      lastError = error
+    for (let attempt = 1; attempt <= GEMINI_RETRY_ATTEMPTS; attempt += 1) {
+      try {
+        const result = await genieModel.generateContent(prompt, {
+          timeout: GEMINI_REQUEST_TIMEOUT_MS,
+        })
+        if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] request succeeded with model: ${model}`)
+        const raw = result.response.text()
+        return cleanAiText(await raw)
+      } catch (error) {
+        logGeminiError(model, error)
+        lastError = error
 
-      if (!isModelCompatibilityError(error)) {
+        const retryable = isRetryableGeminiError(error)
+        const compatibility = isModelCompatibilityError(error)
+
+        if (retryable && attempt < GEMINI_RETRY_ATTEMPTS) {
+          if (process.env.NODE_ENV !== "production") {
+            console.debug(`[Gemini] retrying model ${model} attempt ${attempt + 1}`)
+          }
+          await wait(GEMINI_RETRY_DELAY_MS)
+          continue
+        }
+
+        if (compatibility) {
+          if (process.env.NODE_ENV !== "production") {
+            console.debug(`[Gemini] compatibility error from ${model}, falling back to next model.`)
+          }
+          break
+        }
+
+        if (retryable) {
+          if (process.env.NODE_ENV !== "production") {
+            console.debug(`[Gemini] retryable error from ${model}, trying next model.`)
+          }
+          break
+        }
+
         throw error
       }
-
-      if (process.env.NODE_ENV !== "production") console.debug(`[Gemini] falling back from model ${model} to next supported model.`)
     }
   }
 

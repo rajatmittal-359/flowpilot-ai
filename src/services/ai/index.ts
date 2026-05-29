@@ -28,10 +28,15 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
   // prefer cached analysis
   const cached = await getAnalysisByTicketId(ticket.id)
 
+  const normalizeText = (value: string | null | undefined) => {
+    if (!value || !value.trim()) return null
+    return value
+  }
+
   const workspace: any = {
     ticket,
-    summary: cached?.summary ?? null,
-    suggestedReply: cached?.suggested_reply ?? null,
+    summary: normalizeText(cached?.summary ?? null),
+    suggestedReply: normalizeText(cached?.suggested_reply ?? null),
     analysis: cached?.sentiment
       ? {
           sentiment: cached.sentiment as TicketAnalysisResult["sentiment"],
@@ -44,8 +49,9 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
     analyzedAt: cached?.analyzed_at ?? null,
   }
 
-  // If we have a cached row that looks complete, return immediately (fast path)
-  const hasComplete = workspace.summary || workspace.suggestedReply || workspace.analysis
+  // If we have cached AI output, return immediately (fast path)
+  // Metadata-only rows should not bypass regeneration.
+  const hasComplete = workspace.summary || workspace.suggestedReply
   if (hasComplete && !isAnalysisExpired(cached ?? null, 60 * 60 * 24)) {
     // If cached but stale (older than TTL), schedule background regeneration but don't wait
     if (cached && isAnalysisExpired(cached, 60 * 60 * 24)) {

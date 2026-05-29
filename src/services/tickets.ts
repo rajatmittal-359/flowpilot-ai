@@ -58,7 +58,8 @@ export async function updateTicketStatusForUser(
 ) {
   return queryOne<TicketRow>(
     `UPDATE tickets
-     SET status = $1
+     SET status = $1,
+         resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE NULL END
      WHERE id = $2 AND created_by = $3
      RETURNING id, title, description, status, priority, created_by, assigned_to, created_at`,
     [status, ticketId, userId]

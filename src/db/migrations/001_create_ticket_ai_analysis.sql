@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS ticket_ai_analysis (
 CREATE INDEX IF NOT EXISTS idx_ticket_ai_analysis_analyzed_at ON ticket_ai_analysis(analyzed_at);
 
 CREATE OR REPLACE FUNCTION ticket_ai_analysis_updated_at_trigger()
-RETURNS TRIGGER AS $${
+RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;

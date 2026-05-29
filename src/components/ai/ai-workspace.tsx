@@ -41,18 +41,22 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
       // Support both legacy and new response shapes
       const workspace = payload?.success ? payload.workspace : payload
 
+      if (!workspace) {
+        setError("AI service temporarily unavailable. Try again later.")
+        return
+      }
+
       setSummary(workspace?.summary ?? null)
       setReply(workspace?.suggestedReply ?? null)
       setAnalysis(workspace?.analysis ?? null)
       setAnalyzedAt(workspace?.analyzedAt ?? null)
 
-      // If we received only a fallback analysis and no summary/reply, show a friendly message
       const isFallbackAnalysis = workspace?.analysis && workspace.analysis.sentiment === "unknown" && Number(workspace.analysis.confidence) === 0.5
       if (isFallbackAnalysis && !workspace?.summary && !workspace?.suggestedReply) {
-        setError("AI analysis temporarily unavailable")
+        setError("AI service temporarily unavailable. Try again later.")
       }
     } catch (err) {
-      setError("Unable to connect to AI service.")
+      setError("AI service temporarily unavailable. Try again later.")
     } finally {
       setIsLoading(false)
     }

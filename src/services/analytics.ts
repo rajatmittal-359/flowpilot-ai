@@ -232,12 +232,12 @@ export type ResolutionMetrics = {
 export async function getResolutionMetrics(userId: number): Promise<ResolutionMetrics> {
   const result = await queryOne<ResolutionMetrics>(
     `SELECT
-      ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 2)::float8 AS avg_resolution_time_hours,
-      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 2)::float8 AS median_resolution_time_hours,
-      ROUND(MIN(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 2)::float8 AS fastest_resolution_hours,
-      ROUND(MAX(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 2)::float8 AS slowest_resolution_hours
+      ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600)::numeric, 2)::float8 AS avg_resolution_time_hours,
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600)::numeric, 2)::float8 AS median_resolution_time_hours,
+      ROUND(MIN(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600)::numeric, 2)::float8 AS fastest_resolution_hours,
+      ROUND(MAX(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600)::numeric, 2)::float8 AS slowest_resolution_hours
     FROM tickets
-    WHERE created_by = $1 AND status = 'resolved'`,
+    WHERE created_by = $1 AND resolved_at IS NOT NULL`,
     [userId]
   )
 
