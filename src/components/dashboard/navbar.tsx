@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "@/components/dashboard/sidebar"
+import { UserMenu, type DashboardUser } from "@/components/dashboard/user-menu"
 import { cn } from "@/lib/utils"
 
-export function Navbar({ className }: { className?: string }) {
+export function Navbar({
+  user,
+  className,
+}: {
+  user: DashboardUser
+  className?: string
+}) {
   const [open, setOpen] = React.useState(false)
 
   return (
@@ -51,17 +58,7 @@ export function Navbar({ className }: { className?: string }) {
               <BellIcon className="size-4" />
             </Button>
 
-            <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1.5">
-              <div className="grid size-7 place-items-center rounded-md bg-muted text-xs font-medium text-foreground">
-                U
-              </div>
-              <div className="hidden leading-tight sm:block">
-                <div className="text-xs font-medium">User</div>
-                <div className="text-[11px] text-muted-foreground">
-                  user@flowpilot.ai
-                </div>
-              </div>
-            </div>
+            <UserMenu user={user} />
           </div>
         </div>
       </div>

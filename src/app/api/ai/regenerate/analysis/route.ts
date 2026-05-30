@@ -3,7 +3,12 @@ import { NextResponse, type NextRequest } from "next/server"
 import { getSessionFromRequest } from "@/lib/auth"
 import { getTicketByIdForUser } from "@/services/tickets"
 import { generateTicketWorkspace } from "@/lib/gemini"
-import { upsertAnalysis } from "@/services/ai/cache"
+import {
+  getAnalysisByTicketId,
+  hasPersistedAnalysis,
+  isFallbackWorkspace,
+  persistWorkspaceAnalysis,
+} from "@/services/ai/cache"
 import { ticketIdSchema } from "@/types/ai"
 
 export async function POST(req: NextRequest) {
@@ -18,19 +23,27 @@ export async function POST(req: NextRequest) {
     const ticket = await getTicketByIdForUser(session.userId, parsed.data.ticketId)
     if (!ticket) return NextResponse.json({ message: "Ticket not found." }, { status: 404 })
 
-    // Force fresh unified generation and update cache
     const ws = await generateTicketWorkspace(ticket)
-    await upsertAnalysis(ticket.id, {
-      summary: ws.summary ?? null,
-      suggested_reply: ws.suggestedReply ?? null,
-      sentiment: ws.sentiment ?? undefined,
-      urgency: ws.urgency ?? undefined,
-      recommended_priority: ws.recommendedPriority ?? undefined,
-      category: ws.category ?? undefined,
-      confidence: ws.confidence ?? undefined,
-      analyzed_at: new Date().toISOString(),
-      raw_analysis_json: ws ?? null,
-    })
+
+    if (isFallbackWorkspace(ws)) {
+      const existing = await getAnalysisByTicketId(ticket.id)
+      if (hasPersistedAnalysis(existing)) {
+        return NextResponse.json(
+          {
+            message:
+              "AI returned an unparseable response. Your previous analysis was kept.",
+            keptExisting: true,
+          },
+          { status: 422 }
+        )
+      }
+      return NextResponse.json(
+        { message: "Unable to parse AI response. Please try again." },
+        { status: 502 }
+      )
+    }
+
+    await persistWorkspaceAnalysis(ticket.id, ws)
 
     return NextResponse.json({ message: "AI analysis regenerated." })
   } catch (error) {

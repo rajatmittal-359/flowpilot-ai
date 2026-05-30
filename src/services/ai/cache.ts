@@ -28,7 +28,53 @@ export async function getAnalysisByTicketId(ticketId: number) {
   return row
 }
 
+export type TicketWorkspacePayload = {
+  summary?: string | null
+  suggestedReply?: string | null
+  sentiment?: string
+  urgency?: string
+  recommendedPriority?: string
+  category?: string
+  confidence?: number
+}
+
+function pickMergedField<K extends keyof AIAnalysisRow>(
+  key: K,
+  data: Partial<AIAnalysisRow>,
+  existing: AIAnalysisRow | null
+): AIAnalysisRow[K] | null | undefined {
+  if (key in data) {
+    const value = data[key]
+    return (value === undefined ? null : value) as AIAnalysisRow[K]
+  }
+  return existing?.[key] ?? null
+}
+
+export function isFallbackWorkspace(ws: TicketWorkspacePayload) {
+  const noText = !ws.summary?.trim() && !ws.suggestedReply?.trim()
+  return noText && ws.sentiment === "unknown" && Number(ws.confidence) === 0.5
+}
+
+export function hasPersistedAnalysis(row: AIAnalysisRow | null | undefined) {
+  if (!row) return false
+  return Boolean(row.sentiment?.trim() || row.summary?.trim() || row.suggested_reply?.trim())
+}
+
 export async function upsertAnalysis(ticketId: number, data: Partial<AIAnalysisRow>) {
+  const existing = await getAnalysisByTicketId(ticketId)
+  const merged: AIAnalysisRow = {
+    ticket_id: ticketId,
+    summary: pickMergedField("summary", data, existing) as string | null,
+    suggested_reply: pickMergedField("suggested_reply", data, existing) as string | null,
+    sentiment: pickMergedField("sentiment", data, existing) as string | null,
+    urgency: pickMergedField("urgency", data, existing) as string | null,
+    recommended_priority: pickMergedField("recommended_priority", data, existing) as string | null,
+    category: pickMergedField("category", data, existing) as string | null,
+    confidence: pickMergedField("confidence", data, existing) as number | null,
+    raw_analysis_json: pickMergedField("raw_analysis_json", data, existing) as Record<string, unknown> | null,
+    analyzed_at: (pickMergedField("analyzed_at", data, existing) as string | null) ?? new Date().toISOString(),
+  }
+
   const result = await queryOne<AIAnalysisRow>(
     `INSERT INTO ticket_ai_analysis (ticket_id, summary, suggested_reply, sentiment, urgency, recommended_priority, category, confidence, raw_analysis_json, analyzed_at, updated_at, cache_version)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -48,21 +94,44 @@ export async function upsertAnalysis(ticketId: number, data: Partial<AIAnalysisR
     `,
     [
       ticketId,
-      data.summary ?? null,
-      data.suggested_reply ?? null,
-      data.sentiment ?? null,
-      data.urgency ?? null,
-      data.recommended_priority ?? null,
-      data.category ?? null,
-      data.confidence ?? null,
-      data.raw_analysis_json ?? null,
-      data.analyzed_at ?? new Date().toISOString(),
+      merged.summary ?? null,
+      merged.suggested_reply ?? null,
+      merged.sentiment ?? null,
+      merged.urgency ?? null,
+      merged.recommended_priority ?? null,
+      merged.category ?? null,
+      merged.confidence ?? null,
+      merged.raw_analysis_json ?? null,
+      merged.analyzed_at ?? new Date().toISOString(),
       new Date().toISOString(),
       data.cache_version ?? 1,
     ]
   )
 
   return result
+}
+
+/** Persist Gemini workspace output; skip write when parse fallback would erase valid cache. */
+export async function persistWorkspaceAnalysis(ticketId: number, ws: TicketWorkspacePayload) {
+  if (isFallbackWorkspace(ws)) {
+    const existing = await getAnalysisByTicketId(ticketId)
+    if (hasPersistedAnalysis(existing)) {
+      return existing
+    }
+    return null
+  }
+
+  return upsertAnalysis(ticketId, {
+    summary: ws.summary?.trim() || null,
+    suggested_reply: ws.suggestedReply?.trim() || null,
+    sentiment: ws.sentiment ?? null,
+    urgency: ws.urgency ?? null,
+    recommended_priority: ws.recommendedPriority ?? null,
+    category: ws.category ?? null,
+    confidence: ws.confidence ?? null,
+    analyzed_at: new Date().toISOString(),
+    raw_analysis_json: (ws as Record<string, unknown>) ?? null,
+  })
 }
 
 export function isAnalysisExpired(row: AIAnalysisRow | null, maxAgeSeconds = 60 * 60 * 24) {

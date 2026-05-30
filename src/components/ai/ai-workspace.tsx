@@ -25,9 +25,11 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   async function load() {
     setError(null)
+    setNotice(null)
     setIsLoading(true)
 
     try {
@@ -38,7 +40,12 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
       })
 
       const payload = await res.json()
-      // Support both legacy and new response shapes
+
+      if (!res.ok) {
+        setError(payload?.message ?? "AI service temporarily unavailable. Try again later.")
+        return
+      }
+
       const workspace = payload?.success ? payload.workspace : payload
 
       if (!workspace) {
@@ -50,11 +57,6 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
       setReply(workspace?.suggestedReply ?? null)
       setAnalysis(workspace?.analysis ?? null)
       setAnalyzedAt(workspace?.analyzedAt ?? null)
-
-      const isFallbackAnalysis = workspace?.analysis && workspace.analysis.sentiment === "unknown" && Number(workspace.analysis.confidence) === 0.5
-      if (isFallbackAnalysis && !workspace?.summary && !workspace?.suggestedReply) {
-        setError("AI service temporarily unavailable. Try again later.")
-      }
     } catch (err) {
       setError("AI service temporarily unavailable. Try again later.")
     } finally {
@@ -74,6 +76,7 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
   async function regenerate(kind: "analysis" | "summary" | "reply") {
     setIsRegenerating(true)
     setError(null)
+    setNotice(null)
 
     try {
       const res = await fetch(`/api/ai/regenerate/${kind}`, {
@@ -84,11 +87,15 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
 
       const payload = await res.json()
       if (!res.ok) {
+        if (payload?.keptExisting) {
+          setNotice(payload?.message ?? "Previous AI content was kept.")
+          await load()
+          return
+        }
         setError(payload?.message ?? "Unable to regenerate.")
         return
       }
 
-      // reload fresh workspace
       await load()
     } catch (err) {
       setError("Unable to contact AI service.")
@@ -102,6 +109,11 @@ export function AiWorkspace({ ticketId }: { ticketId: number }) {
 
   return (
     <div className="space-y-4">
+      {notice ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {notice}
+        </div>
+      ) : null}
       <Card className="shadow-sm">
         <CardHeader className="border-b flex items-center justify-between gap-3">
           <CardTitle>AI Summary</CardTitle>

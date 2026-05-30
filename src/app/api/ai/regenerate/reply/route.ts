@@ -3,7 +3,12 @@ import { NextResponse, type NextRequest } from "next/server"
 import { getSessionFromRequest } from "@/lib/auth"
 import { getTicketByIdForUser } from "@/services/tickets"
 import { generateTicketWorkspace } from "@/lib/gemini"
-import { upsertAnalysis } from "@/services/ai/cache"
+import {
+  getAnalysisByTicketId,
+  hasPersistedAnalysis,
+  isFallbackWorkspace,
+  upsertAnalysis,
+} from "@/services/ai/cache"
 import { ticketIdSchema } from "@/types/ai"
 
 export async function POST(req: NextRequest) {
@@ -20,10 +25,29 @@ export async function POST(req: NextRequest) {
 
     const ws = await generateTicketWorkspace(ticket)
 
+    if (isFallbackWorkspace(ws)) {
+      const existing = await getAnalysisByTicketId(ticket.id)
+      if (hasPersistedAnalysis(existing)) {
+        return NextResponse.json(
+          {
+            message:
+              "AI returned an unparseable response. Your previous reply was kept.",
+            suggested_reply: existing?.suggested_reply ?? null,
+            keptExisting: true,
+          },
+          { status: 422 }
+        )
+      }
+      return NextResponse.json(
+        { message: "Unable to parse AI response. Please try again." },
+        { status: 502 }
+      )
+    }
+
     await upsertAnalysis(ticket.id, {
-      suggested_reply: ws.suggestedReply ?? null,
+      suggested_reply: ws.suggestedReply?.trim() || null,
       analyzed_at: new Date().toISOString(),
-      raw_analysis_json: ws ?? null,
+      raw_analysis_json: ws as Record<string, unknown>,
     })
 
     return NextResponse.json({ message: "Suggested reply regenerated.", suggested_reply: ws.suggestedReply })

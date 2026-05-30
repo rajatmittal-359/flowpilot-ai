@@ -1,6 +1,10 @@
 import { getTicketByIdForUser } from "@/services/tickets"
 import { generateTicketWorkspace } from "@/lib/gemini"
-import { getAnalysisByTicketId, upsertAnalysis, isAnalysisExpired } from "./cache"
+import {
+  getAnalysisByTicketId,
+  isAnalysisExpired,
+  persistWorkspaceAnalysis,
+} from "./cache"
 import type { TicketRow } from "@/types/db"
 import type { TicketAnalysisResult } from "@/types/ai"
 
@@ -59,17 +63,7 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
         const bg = (async () => {
           try {
             const ws = await generateTicketWorkspace(ticket)
-            await upsertAnalysis(ticket.id, {
-              summary: ws.summary ?? null,
-              suggested_reply: ws.suggestedReply ?? null,
-              sentiment: ws.sentiment ?? undefined,
-              urgency: ws.urgency ?? undefined,
-              recommended_priority: ws.recommendedPriority ?? undefined,
-              category: ws.category ?? undefined,
-              confidence: ws.confidence ?? undefined,
-              analyzed_at: new Date().toISOString(),
-              raw_analysis_json: ws ?? null,
-            })
+            await persistWorkspaceAnalysis(ticket.id, ws)
           } catch (err) {
             console.warn("[AI] background regeneration failed", err)
           }
@@ -108,17 +102,7 @@ export async function getTicketWorkspaceForUser(userId: number, ticketId: number
       // Unified generation: call the single workspace generator
       try {
         const ws = await generateTicketWorkspace(ticket)
-        await upsertAnalysis(ticket.id, {
-          summary: ws.summary ?? null,
-          suggested_reply: ws.suggestedReply ?? null,
-          sentiment: ws.sentiment ?? undefined,
-          urgency: ws.urgency ?? undefined,
-          recommended_priority: ws.recommendedPriority ?? undefined,
-          category: ws.category ?? undefined,
-          confidence: ws.confidence ?? undefined,
-          analyzed_at: new Date().toISOString(),
-          raw_analysis_json: ws ?? null,
-        })
+        await persistWorkspaceAnalysis(ticket.id, ws)
       } catch (err: any) {
         const isRateLimit = err && ((err.status && err.status === 429) || String(err).includes("429") || String(err).toLowerCase().includes("too many requests"))
         console.warn("[AI] generation error", { ticketId: ticket.id, isRateLimit, err })
@@ -167,20 +151,20 @@ export async function regenerateTicketAnalysisForUser(userId: number, ticketId: 
   if (!ticket) return null
   // Force unified workspace generation and persist
   const ws = await generateTicketWorkspace(ticket)
+  const row = await persistWorkspaceAnalysis(ticket.id, ws)
 
-  const row = await upsertAnalysis(ticket.id, {
-    summary: ws.summary ?? null,
-    suggested_reply: ws.suggestedReply ?? null,
-    sentiment: ws.sentiment ?? undefined,
-    urgency: ws.urgency ?? undefined,
-    recommended_priority: ws.recommendedPriority ?? undefined,
-    category: ws.category ?? undefined,
-    confidence: ws.confidence ?? undefined,
-    analyzed_at: new Date().toISOString(),
-    raw_analysis_json: ws ?? null,
-  })
-
-  return { summary: ws.summary, suggestedReply: ws.suggestedReply, analysis: { sentiment: ws.sentiment, urgency: ws.urgency, recommendedPriority: ws.recommendedPriority, category: ws.category, confidence: ws.confidence }, row }
+  return {
+    summary: ws.summary,
+    suggestedReply: ws.suggestedReply,
+    analysis: {
+      sentiment: ws.sentiment,
+      urgency: ws.urgency,
+      recommendedPriority: ws.recommendedPriority,
+      category: ws.category,
+      confidence: ws.confidence,
+    },
+    row,
+  }
 }
 
 // Backwards-compatible helpers for existing API routes
