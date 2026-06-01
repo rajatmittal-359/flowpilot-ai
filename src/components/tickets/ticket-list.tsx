@@ -7,8 +7,24 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { TicketRow } from "@/types/db"
 
-const STATUS_OPTIONS = ["all", "open", "in_progress", "resolved"] as const
+const STATUS_OPTIONS = ["all", "open", "in_progress", "resolved", "closed"] as const
 const PRIORITY_OPTIONS = ["all", "low", "medium", "high", "urgent"] as const
+
+const STATUS_LABELS: Record<(typeof STATUS_OPTIONS)[number], string> = {
+  all: "All statuses",
+  open: "Open",
+  in_progress: "In progress",
+  resolved: "Resolved",
+  closed: "Closed",
+}
+
+function formatDate(dateString: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(dateString))
+}
 
 export function TicketList({ tickets }: { tickets: TicketRow[] }) {
   const [statusFilter, setStatusFilter] = useState<typeof STATUS_OPTIONS[number]>("all")
@@ -30,13 +46,17 @@ export function TicketList({ tickets }: { tickets: TicketRow[] }) {
     })
   }, [tickets, statusFilter, priorityFilter, searchTerm])
 
+  const ticketCountLabel = `${filteredTickets.length} ticket${filteredTickets.length === 1 ? "" : "s"}`
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="border-b">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>My tickets</CardTitle>
-            <CardDescription>Filter by status, priority, or search by title.</CardDescription>
+            <CardDescription>
+              {ticketCountLabel} · Filter by status, priority, or search by title.
+            </CardDescription>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <select
@@ -46,7 +66,7 @@ export function TicketList({ tickets }: { tickets: TicketRow[] }) {
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status === "all" ? "All statuses" : status.replace("_", " ")}
+                  {STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
@@ -70,7 +90,11 @@ export function TicketList({ tickets }: { tickets: TicketRow[] }) {
         </div>
       </CardHeader>
       <CardContent>
-        {filteredTickets.length === 0 ? (
+        {tickets.length === 0 ? (
+          <div className="grid h-44 place-items-center rounded-2xl border border-dashed bg-muted/30 text-sm text-muted-foreground">
+            No tickets created yet. Use the form to create your first ticket.
+          </div>
+        ) : filteredTickets.length === 0 ? (
           <div className="grid h-44 place-items-center rounded-2xl border border-dashed bg-muted/30 text-sm text-muted-foreground">
             No tickets match the selected filters.
           </div>
@@ -83,14 +107,20 @@ export function TicketList({ tickets }: { tickets: TicketRow[] }) {
                 className="group block rounded-3xl border border-border bg-background p-4 transition hover:border-primary/50 hover:bg-muted/70"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">{ticket.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.description ?? "No description available."}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {ticket.description ?? "No description available."}
+                    </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     <TicketStatusBadge status={ticket.status} />
                     <TicketPriorityBadge priority={ticket.priority} />
                   </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Created {formatDate(ticket.created_at)}</span>
+                  <span>#{ticket.id}</span>
                 </div>
               </Link>
             ))}

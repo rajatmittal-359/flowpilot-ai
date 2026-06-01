@@ -1,4 +1,5 @@
 import { query, queryOne } from "@/db/index"
+import { getTicketVisibilityCondition, type PermissionActor } from "@/services/permissions"
 import type { TicketRow } from "@/types/db"
 
 export type TicketStats = {
@@ -28,6 +29,20 @@ export async function getTicketsForUser(userId: number) {
   )
 }
 
+export async function getTicketsForActor(actor: PermissionActor, limit = 10) {
+  const visibility = getTicketVisibilityCondition(actor, { tableAlias: "tickets" })
+  const limitParam = `$${visibility.params.length + 1}`
+
+  return query<TicketRow>(
+    `SELECT id, title, description, status, priority, created_by, assigned_to, created_at
+     FROM tickets
+     WHERE ${visibility.sql}
+     ORDER BY created_at DESC
+     LIMIT ${limitParam}`,
+    [...visibility.params, limit]
+  )
+}
+
 export async function getDashboardStatsForUser(userId: number) {
   return queryOne<TicketStats>(
     `SELECT
@@ -35,10 +50,31 @@ export async function getDashboardStatsForUser(userId: number) {
       SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)::int AS open_tickets,
       SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END)::int AS resolved_tickets,
       SUM(CASE WHEN priority IN ('high', 'urgent') THEN 1 ELSE 0 END)::int AS high_priority_tickets,
-      SUM(CASE WHEN description IS NOT NULL AND description <> '' THEN 1 ELSE 0 END)::int AS ai_analyzed_tickets
+      (SELECT COUNT(*)::int FROM ticket_ai_analysis taa
+       WHERE taa.ticket_id IN (SELECT id FROM tickets WHERE created_by = $1))::int AS ai_analyzed_tickets
     FROM tickets
     WHERE created_by = $1`,
     [userId]
+  )
+}
+
+export async function getDashboardStatsForActor(actor: PermissionActor) {
+  const visibility = getTicketVisibilityCondition(actor, { tableAlias: "t" })
+  const aiVisibility = getTicketVisibilityCondition(actor, { tableAlias: "t2" })
+
+  return queryOne<TicketStats>(
+    `SELECT
+      COUNT(*)::int AS total,
+      COALESCE(SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END), 0)::int AS open_tickets,
+      COALESCE(SUM(CASE WHEN t.status = 'resolved' THEN 1 ELSE 0 END), 0)::int AS resolved_tickets,
+      COALESCE(SUM(CASE WHEN t.priority IN ('high', 'urgent') THEN 1 ELSE 0 END), 0)::int AS high_priority_tickets,
+      (SELECT COUNT(*)::int
+       FROM ticket_ai_analysis taa
+       JOIN tickets t2 ON t2.id = taa.ticket_id
+       WHERE ${aiVisibility.sql})::int AS ai_analyzed_tickets
+    FROM tickets t
+    WHERE ${visibility.sql}`,
+    visibility.params
   )
 }
 
@@ -48,6 +84,20 @@ export async function getTicketByIdForUser(userId: number, ticketId: number) {
      FROM tickets
      WHERE id = $1 AND created_by = $2`,
     [ticketId, userId]
+  )
+}
+
+export async function getTicketByIdForActor(actor: PermissionActor, ticketId: number) {
+  const visibility = getTicketVisibilityCondition(actor, {
+    tableAlias: "tickets",
+    parameterOffset: 1,
+  })
+
+  return queryOne<TicketRow>(
+    `SELECT id, title, description, status, priority, created_by, assigned_to, created_at
+     FROM tickets
+     WHERE id = $1 AND ${visibility.sql}`,
+    [ticketId, ...visibility.params]
   )
 }
 

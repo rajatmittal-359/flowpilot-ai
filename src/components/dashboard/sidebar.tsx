@@ -93,13 +93,6 @@ export function Sidebar({
           })}
         </div>
       </nav>
-
-      <div className="border-t p-3">
-        <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          <div className="font-medium text-foreground">Early access</div>
-          <div className="mt-0.5">Dashboard foundation in progress.</div>
-        </div>
-      </div>
     </aside>
   )
 }

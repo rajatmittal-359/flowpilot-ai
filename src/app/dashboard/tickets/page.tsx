@@ -4,10 +4,9 @@ import { LifeBuoyIcon } from "lucide-react"
 
 import { CreateTicketForm } from "@/components/forms/create-ticket-form"
 import { TicketList } from "@/components/tickets/ticket-list"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { getCurrentUserFromToken } from "@/services/auth"
-import { getTicketsForUser } from "@/services/tickets"
+import { getTicketsForActor } from "@/services/tickets"
 
 export default async function DashboardTicketsPage() {
   const cookiesStore = await cookies()
@@ -18,7 +17,7 @@ export default async function DashboardTicketsPage() {
     redirect("/login")
   }
 
-  const tickets = await getTicketsForUser(user.id)
+  const tickets = await getTicketsForActor(user)
 
   return (
     <div className="space-y-6">

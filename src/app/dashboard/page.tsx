@@ -1,4 +1,5 @@
 import { cookies } from "next/headers"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
   ActivityIcon,
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { getCurrentUserFromToken } from "@/services/auth"
-import { getDashboardStatsForUser, getTicketsForUser } from "@/services/tickets"
+import { getDashboardStatsForActor, getTicketsForActor } from "@/services/tickets"
 import type { TicketRow } from "@/types/db"
 
 function formatDate(dateString: string) {
@@ -52,14 +53,14 @@ export default async function DashboardPage() {
   }
 
   const stats =
-    (await getDashboardStatsForUser(user.id)) ?? {
+    (await getDashboardStatsForActor(user)) ?? {
       total: 0,
       open_tickets: 0,
       resolved_tickets: 0,
       high_priority_tickets: 0,
       ai_analyzed_tickets: 0,
     }
-  const tickets = await getTicketsForUser(user.id)
+  const tickets = await getTicketsForActor(user)
 
   return (
     <div className="space-y-6">
@@ -74,47 +75,52 @@ export default async function DashboardPage() {
         <StatCard
           label="Total tickets"
           value={String(stats.total)}
-          hint="Tickets you have created"
+          hint="Created across your workspace"
           icon={<LifeBuoyIcon className="size-4" />}
-          trend={{ label: "Current workload", tone: "neutral" }}
         />
         <StatCard
           label="Open tickets"
           value={String(stats.open_tickets)}
-          hint="Tickets still open"
+          hint="Awaiting resolution"
           icon={<ActivityIcon className="size-4" />}
-          trend={{ label: "Real-time status", tone: "neutral" }}
         />
         <StatCard
           label="Resolved tickets"
           value={String(stats.resolved_tickets)}
-          hint="Tickets you have closed"
+          hint="Successfully closed"
           icon={<BotIcon className="size-4" />}
-          trend={{ label: "Resolution progress", tone: "neutral" }}
         />
         <StatCard
           label="High priority"
           value={String(stats.high_priority_tickets)}
-          hint="Urgent or high priority tickets"
+          hint="Needs immediate attention"
           icon={<TrendingUpIcon className="size-4" />}
-          trend={{ label: "Prioritize these", tone: "neutral" }}
         />
         <StatCard
           label="AI analyzed"
           value={String(stats.ai_analyzed_tickets)}
-          hint="Tickets ready for AI insights"
+          hint="Processed by AI insights"
           icon={<BotIcon className="size-4" />}
-          trend={{ label: "Support context", tone: "positive" }}
         />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader className="border-b">
-            <CardTitle>Recent tickets</CardTitle>
-            <CardDescription>
-              Your latest tickets are listed below.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle>Recent tickets</CardTitle>
+                <CardDescription>
+                  Your latest tickets are listed below.
+                </CardDescription>
+              </div>
+              <Link
+                href="/dashboard/tickets"
+                className="shrink-0 text-sm font-medium text-primary hover:underline"
+              >
+                View all
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
             {tickets.length === 0 ? (
@@ -124,7 +130,11 @@ export default async function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {tickets.map((ticket) => (
-                  <div key={ticket.id} className="rounded-2xl border bg-background p-4 shadow-sm">
+                  <Link
+                    key={ticket.id}
+                    href={`/dashboard/tickets/${ticket.id}`}
+                    className="group block rounded-2xl border border-border bg-background p-4 shadow-sm transition hover:border-primary/50 hover:bg-muted/70"
+                  >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-semibold text-foreground">{ticket.title}</p>
@@ -143,7 +153,7 @@ export default async function DashboardPage() {
                       <span>Created {formatDate(ticket.created_at)}</span>
                       <span>#{ticket.id}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -157,4 +167,3 @@ export default async function DashboardPage() {
     </div>
   )
 }
-

@@ -7,7 +7,6 @@ import {
   getAnalyticsMetrics,
   getTicketsByPriority,
   getTicketsByStatus,
-  getPriorityBreakdown,
   getRecentTicketActivity,
   getResolutionMetrics,
 } from "@/services/analytics"
@@ -53,21 +52,14 @@ export default async function DashboardAnalyticsPage() {
     redirect("/login")
   }
 
-  const [
-    metrics,
-    priorityDistribution,
-    statusDistribution,
-    priorityBreakdown,
-    recentActivity,
-    resolutionMetrics,
-  ] = await Promise.all([
-    getAnalyticsMetrics(user.id),
-    getTicketsByPriority(user.id),
-    getTicketsByStatus(user.id),
-    getPriorityBreakdown(user.id),
-    getRecentTicketActivity(user.id, 8),
-    getResolutionMetrics(user.id),
-  ])
+  const [metrics, priorityDistribution, statusDistribution, recentActivity, resolutionMetrics] =
+    await Promise.all([
+      getAnalyticsMetrics(user.id),
+      getTicketsByPriority(user.id),
+      getTicketsByStatus(user.id),
+      getRecentTicketActivity(user.id, 8),
+      getResolutionMetrics(user.id),
+    ])
 
   const maxPriorityCount = getMaxCount(priorityDistribution.map((p) => p.count))
   const maxStatusCount = getMaxCount(statusDistribution.map((s) => s.count))
@@ -219,37 +211,9 @@ export default async function DashboardAnalyticsPage() {
         </Card>
       </section>
 
-      {/* KPI overview and priority breakdown */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="shadow-sm lg:col-span-1">
-          <CardHeader className="border-b">
-            <CardTitle>Priority Summary</CardTitle>
-            <CardDescription>Quick breakdown by level</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-red-50">
-                <span className="text-sm font-medium text-red-900">Urgent</span>
-                <span className="text-lg font-bold text-red-600">{priorityBreakdown.urgent_count}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50">
-                <span className="text-sm font-medium text-orange-900">High</span>
-                <span className="text-lg font-bold text-orange-600">{priorityBreakdown.high_count}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
-                <span className="text-sm font-medium text-yellow-900">Medium</span>
-                <span className="text-lg font-bold text-yellow-600">{priorityBreakdown.medium_count}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
-                <span className="text-sm font-medium text-green-900">Low</span>
-                <span className="text-lg font-bold text-green-600">{priorityBreakdown.low_count}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <section className="grid gap-4 lg:grid-cols-2">
         {/* Resolution metrics */}
-        <Card className="shadow-sm lg:col-span-1">
+        <Card className="shadow-sm">
           <CardHeader className="border-b">
             <CardTitle>Resolution Metrics</CardTitle>
             <CardDescription>Time to close analysis</CardDescription>
@@ -295,7 +259,7 @@ export default async function DashboardAnalyticsPage() {
         </Card>
 
         {/* High priority alert */}
-        <Card className="shadow-sm lg:col-span-1">
+        <Card className="shadow-sm">
           <CardHeader className="border-b">
             <CardTitle>Priority Alert</CardTitle>
             <CardDescription>Items needing attention</CardDescription>
@@ -309,10 +273,7 @@ export default async function DashboardAnalyticsPage() {
                 </p>
                 <p className="text-xs text-red-700 mt-2">
                   {metrics.total_tickets > 0
-                    ? Math.round(
-                        ((priorityBreakdown.urgent_count + priorityBreakdown.high_count) / metrics.total_tickets) *
-                          100
-                      )
+                    ? Math.round((metrics.high_priority_tickets / metrics.total_tickets) * 100)
                     : 0}
                   % of workload
                 </p>
@@ -322,12 +283,11 @@ export default async function DashboardAnalyticsPage() {
         </Card>
       </section>
 
-      {/* Recent activity */}
       <section>
         <Card className="shadow-sm">
           <CardHeader className="border-b">
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest ticket updates and changes</CardDescription>
+            <CardTitle>Recently Created Tickets</CardTitle>
+            <CardDescription>Your most recently created tickets</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             {recentActivity.length > 0 ? (
@@ -356,7 +316,7 @@ export default async function DashboardAnalyticsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No recent activity.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No tickets yet.</p>
             )}
           </CardContent>
         </Card>

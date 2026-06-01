@@ -5,12 +5,11 @@ import { ArrowLeft } from "lucide-react"
 
 import { TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets/ticket-badges"
 import { TicketStatusForm } from "@/components/tickets/ticket-status-form"
-import { AiTicketAnalysisPanel } from "@/components/ai/ai-ticket-analysis-panel"
 import { AiWorkspace } from "@/components/ai/ai-workspace"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { getCurrentUserFromToken } from "@/services/auth"
-import { getTicketByIdForUser } from "@/services/tickets"
+import { getTicketByIdForActor } from "@/services/tickets"
 import type { TicketRow } from "@/types/db"
 
 function formatDate(dateString: string) {
@@ -42,10 +41,12 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
     return notFound()
   }
 
-  const ticket = await getTicketByIdForUser(user.id, ticketId)
+  const ticket = await getTicketByIdForActor(user, ticketId)
   if (!ticket) {
     return notFound()
   }
+
+  const canUseRequesterTicketActions = ticket.created_by === user.id
 
   return (
     <div className="space-y-6">
@@ -55,10 +56,7 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
             <ArrowLeft className="size-4" />
             Back to tickets
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">Ticket details</h1>
-          <p className="text-sm text-muted-foreground">
-            Review the ticket history, status, and priority for this request.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{ticket.title}</h1>
         </div>
         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
           <div className="font-medium text-foreground">Ticket #{ticket.id}</div>
@@ -66,14 +64,14 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="space-y-4">
+      <section className={`grid gap-4 ${canUseRequesterTicketActions ? "xl:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+        <div className="order-1 space-y-4 xl:order-none">
           <Card className="shadow-sm">
             <CardHeader className="border-b">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <CardTitle>{ticket.title}</CardTitle>
-                  <CardDescription>Ticket description and request details.</CardDescription>
+                  <CardTitle>Description</CardTitle>
+                  <CardDescription>Ticket request details.</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <TicketStatusBadge status={ticket.status} />
@@ -89,44 +87,14 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
               </div>
             </CardContent>
           </Card>
-
-          <Card className="shadow-sm">
-            <CardHeader className="border-b">
-              <CardTitle>Comments</CardTitle>
-              <CardDescription>Future support conversation and real-time comments.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-2xl border border-dashed bg-muted/40 p-6 text-sm text-muted-foreground">
-                Comment threads will appear here once the real-time messaging workflow is implemented.
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="space-y-4">
-          <TicketStatusForm ticket={ticket as TicketRow} />
-          <AiWorkspace ticketId={ticket.id} />
-
-          <Card className="shadow-sm">
-            <CardHeader className="border-b">
-              <CardTitle>Activity timeline</CardTitle>
-              <CardDescription>Placeholder for ticket events and audit trail.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  "Ticket created by you",
-                  "Status update history will be visible here",
-                  "Activity logs and comments will populate in future releases",
-                ].map((item) => (
-                  <div key={item} className="rounded-2xl border border-border/80 bg-background p-4 text-sm text-muted-foreground">
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {canUseRequesterTicketActions ? (
+          <div className="order-2 space-y-4 xl:order-none">
+            <TicketStatusForm ticket={ticket as TicketRow} />
+            <AiWorkspace ticketId={ticket.id} />
+          </div>
+        ) : null}
       </section>
     </div>
   )
