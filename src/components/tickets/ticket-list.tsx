@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { TicketRow } from "@/types/db"
 
+type TicketListItem = TicketRow & {
+  assignee_name?: string | null
+}
+
 const STATUS_OPTIONS = ["all", "open", "in_progress", "resolved", "closed"] as const
 const PRIORITY_OPTIONS = ["all", "low", "medium", "high", "urgent"] as const
 
@@ -26,7 +30,7 @@ function formatDate(dateString: string) {
   }).format(new Date(dateString))
 }
 
-export function TicketList({ tickets }: { tickets: TicketRow[] }) {
+export function TicketList({ tickets }: { tickets: TicketListItem[] }) {
   const [statusFilter, setStatusFilter] = useState<typeof STATUS_OPTIONS[number]>("all")
   const [priorityFilter, setPriorityFilter] = useState<typeof PRIORITY_OPTIONS[number]>("all")
   const [searchTerm, setSearchTerm] = useState("")
@@ -120,6 +124,7 @@ export function TicketList({ tickets }: { tickets: TicketRow[] }) {
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span>Created {formatDate(ticket.created_at)}</span>
+                  <span>{ticket.assignee_name ? `Assigned to ${ticket.assignee_name}` : "Unassigned"}</span>
                   <span>#{ticket.id}</span>
                 </div>
               </Link>

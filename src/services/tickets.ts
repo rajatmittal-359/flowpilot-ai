@@ -1,5 +1,6 @@
 import { query, queryOne } from "@/db/index"
-import { getTicketVisibilityCondition, type PermissionActor } from "@/services/permissions"
+import { canAssignTickets, getTicketVisibilityCondition, type PermissionActor } from "@/services/permissions"
+import { getAssignableAgentById } from "@/services/users"
 import type { TicketRow } from "@/types/db"
 
 export type TicketStats = {
@@ -9,6 +10,24 @@ export type TicketStats = {
   high_priority_tickets: number
   ai_analyzed_tickets: number
 }
+
+export type TicketWithAssignee = TicketRow & {
+  assignee_name: string | null
+  assignee_email: string | null
+}
+
+const ticketWithAssigneeSelect = `
+  tickets.id,
+  tickets.title,
+  tickets.description,
+  tickets.status,
+  tickets.priority,
+  tickets.created_by,
+  tickets.assigned_to,
+  tickets.created_at,
+  assignee.name AS assignee_name,
+  assignee.email AS assignee_email
+`
 
 export async function createTicket(
   createdBy: number,
@@ -33,11 +52,12 @@ export async function getTicketsForActor(actor: PermissionActor, limit = 10) {
   const visibility = getTicketVisibilityCondition(actor, { tableAlias: "tickets" })
   const limitParam = `$${visibility.params.length + 1}`
 
-  return query<TicketRow>(
-    `SELECT id, title, description, status, priority, created_by, assigned_to, created_at
+  return query<TicketWithAssignee>(
+    `SELECT ${ticketWithAssigneeSelect}
      FROM tickets
+     LEFT JOIN users assignee ON assignee.id = tickets.assigned_to
      WHERE ${visibility.sql}
-     ORDER BY created_at DESC
+     ORDER BY tickets.created_at DESC
      LIMIT ${limitParam}`,
     [...visibility.params, limit]
   )
@@ -93,12 +113,55 @@ export async function getTicketByIdForActor(actor: PermissionActor, ticketId: nu
     parameterOffset: 1,
   })
 
-  return queryOne<TicketRow>(
-    `SELECT id, title, description, status, priority, created_by, assigned_to, created_at
+  return queryOne<TicketWithAssignee>(
+    `SELECT ${ticketWithAssigneeSelect}
      FROM tickets
-     WHERE id = $1 AND ${visibility.sql}`,
+     LEFT JOIN users assignee ON assignee.id = tickets.assigned_to
+     WHERE tickets.id = $1 AND ${visibility.sql}`,
     [ticketId, ...visibility.params]
   )
+}
+
+export type AssignTicketResult =
+  | { status: "assigned"; ticket: TicketWithAssignee }
+  | { status: "forbidden" }
+  | { status: "ticket_not_found" }
+  | { status: "assignee_not_found" }
+
+export async function assignTicketToAgent(
+  actor: PermissionActor,
+  ticketId: number,
+  assigneeId: number
+): Promise<AssignTicketResult> {
+  if (!canAssignTickets(actor)) {
+    return { status: "forbidden" }
+  }
+
+  const ticket = await getTicketByIdForActor(actor, ticketId)
+  if (!ticket) {
+    return { status: "ticket_not_found" }
+  }
+
+  const assignee = await getAssignableAgentById(assigneeId)
+  if (!assignee) {
+    return { status: "assignee_not_found" }
+  }
+
+  const updated = await queryOne<TicketWithAssignee>(
+    `UPDATE tickets
+     SET assigned_to = $1
+     FROM users assignee
+     WHERE tickets.id = $2
+       AND assignee.id = $1
+     RETURNING ${ticketWithAssigneeSelect}`,
+    [assignee.id, ticketId]
+  )
+
+  if (!updated) {
+    return { status: "ticket_not_found" }
+  }
+
+  return { status: "assigned", ticket: updated }
 }
 
 export async function updateTicketStatusForUser(

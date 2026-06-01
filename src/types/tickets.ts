@@ -10,5 +10,10 @@ export const updateTicketStatusSchema = z.object({
   status: z.enum(["open", "in_progress", "resolved"]),
 })
 
+export const assignTicketSchema = z.object({
+  assignedTo: z.preprocess((value) => Number(value), z.number().int().positive()),
+})
+
 export type CreateTicketBody = z.infer<typeof createTicketSchema>
 export type UpdateTicketStatusBody = z.infer<typeof updateTicketStatusSchema>
+export type AssignTicketBody = z.infer<typeof assignTicketSchema>

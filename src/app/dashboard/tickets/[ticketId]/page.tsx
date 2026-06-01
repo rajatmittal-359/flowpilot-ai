@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets/ticket-badges"
 import { TicketStatusForm } from "@/components/tickets/ticket-status-form"
+import { TicketAssignmentPanel } from "@/components/tickets/ticket-assignment-panel"
 import { AiWorkspace } from "@/components/ai/ai-workspace"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
@@ -64,7 +65,7 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
         </div>
       </section>
 
-      <section className={`grid gap-4 ${canUseRequesterTicketActions ? "xl:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+      <section className="grid gap-4 xl:grid-cols-[1.4fr_0.6fr]">
         <div className="order-1 space-y-4 xl:order-none">
           <Card className="shadow-sm">
             <CardHeader className="border-b">
@@ -89,12 +90,21 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
           </Card>
         </div>
 
-        {canUseRequesterTicketActions ? (
-          <div className="order-2 space-y-4 xl:order-none">
+        <div className="order-2 space-y-4 xl:order-none">
+          <TicketAssignmentPanel
+            ticketId={ticket.id}
+            assignedTo={ticket.assigned_to}
+            assigneeName={ticket.assignee_name}
+            assigneeEmail={ticket.assignee_email}
+            currentUserRole={user.role}
+          />
+          {canUseRequesterTicketActions ? (
+            <>
             <TicketStatusForm ticket={ticket as TicketRow} />
             <AiWorkspace ticketId={ticket.id} />
-          </div>
-        ) : null}
+            </>
+          ) : null}
+        </div>
       </section>
     </div>
   )

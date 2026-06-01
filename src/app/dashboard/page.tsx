@@ -151,6 +151,7 @@ export default async function DashboardPage() {
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                       <span>Created {formatDate(ticket.created_at)}</span>
+                      <span>{ticket.assignee_name ? `Assigned to ${ticket.assignee_name}` : "Unassigned"}</span>
                       <span>#{ticket.id}</span>
                     </div>
                   </Link>
