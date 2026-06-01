@@ -18,6 +18,14 @@ export function canBeAssignedTicket(user: PermissionActor) {
   return isAgent(user)
 }
 
+export function canUpdateTicketStatus(
+  actor: PermissionActor,
+  ticket: Pick<TicketRow, "assigned_to">
+) {
+  if (isAdmin(actor)) return true
+  return isAgent(actor) && ticket.assigned_to === actor.id
+}
+
 export function canViewTicket(actor: PermissionActor, ticket: Pick<TicketRow, "created_by" | "assigned_to">) {
   if (isAdmin(actor)) return true
   if (isAgent(actor)) return ticket.assigned_to === actor.id

@@ -1,11 +1,17 @@
 import { query, queryOne } from "@/db/index"
-import { canAssignTickets, getTicketVisibilityCondition, type PermissionActor } from "@/services/permissions"
+import {
+  canAssignTickets,
+  canUpdateTicketStatus,
+  getTicketVisibilityCondition,
+  type PermissionActor,
+} from "@/services/permissions"
 import { getAssignableAgentById } from "@/services/users"
 import type { TicketRow } from "@/types/db"
 
 export type TicketStats = {
   total: number
   open_tickets: number
+  in_progress_tickets: number
   resolved_tickets: number
   high_priority_tickets: number
   ai_analyzed_tickets: number
@@ -68,6 +74,7 @@ export async function getDashboardStatsForUser(userId: number) {
     `SELECT
       COUNT(*)::int AS total,
       SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)::int AS open_tickets,
+      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END)::int AS in_progress_tickets,
       SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END)::int AS resolved_tickets,
       SUM(CASE WHEN priority IN ('high', 'urgent') THEN 1 ELSE 0 END)::int AS high_priority_tickets,
       (SELECT COUNT(*)::int FROM ticket_ai_analysis taa
@@ -86,6 +93,7 @@ export async function getDashboardStatsForActor(actor: PermissionActor) {
     `SELECT
       COUNT(*)::int AS total,
       COALESCE(SUM(CASE WHEN t.status = 'open' THEN 1 ELSE 0 END), 0)::int AS open_tickets,
+      COALESCE(SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END), 0)::int AS in_progress_tickets,
       COALESCE(SUM(CASE WHEN t.status = 'resolved' THEN 1 ELSE 0 END), 0)::int AS resolved_tickets,
       COALESCE(SUM(CASE WHEN t.priority IN ('high', 'urgent') THEN 1 ELSE 0 END), 0)::int AS high_priority_tickets,
       (SELECT COUNT(*)::int
@@ -177,4 +185,44 @@ export async function updateTicketStatusForUser(
      RETURNING id, title, description, status, priority, created_by, assigned_to, created_at`,
     [status, ticketId, userId]
   )
+}
+
+export type UpdateTicketStatusResult =
+  | { status: "updated"; ticket: TicketWithAssignee }
+  | { status: "forbidden" }
+  | { status: "ticket_not_found" }
+
+export async function updateTicketStatusForActor(
+  actor: PermissionActor,
+  ticketId: number,
+  status: TicketRow["status"]
+): Promise<UpdateTicketStatusResult> {
+  const ticket = await getTicketByIdForActor(actor, ticketId)
+  if (!ticket) {
+    return { status: "ticket_not_found" }
+  }
+
+  if (!canUpdateTicketStatus(actor, ticket)) {
+    return { status: "forbidden" }
+  }
+
+  const updated = await queryOne<TicketRow>(
+    `UPDATE tickets
+     SET status = $1,
+         resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE NULL END
+     WHERE tickets.id = $2
+     RETURNING id, title, description, status, priority, created_by, assigned_to, created_at`,
+    [status, ticketId]
+  )
+
+  if (!updated) {
+    return { status: "ticket_not_found" }
+  }
+
+  const visibleUpdated = await getTicketByIdForActor(actor, updated.id)
+  if (!visibleUpdated) {
+    return { status: "ticket_not_found" }
+  }
+
+  return { status: "updated", ticket: visibleUpdated }
 }

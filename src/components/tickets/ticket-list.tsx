@@ -30,7 +30,15 @@ function formatDate(dateString: string) {
   }).format(new Date(dateString))
 }
 
-export function TicketList({ tickets }: { tickets: TicketListItem[] }) {
+export function TicketList({
+  tickets,
+  title = "My tickets",
+  emptyMessage = "No tickets created yet. Use the form to create your first ticket.",
+}: {
+  tickets: TicketListItem[]
+  title?: string
+  emptyMessage?: string
+}) {
   const [statusFilter, setStatusFilter] = useState<typeof STATUS_OPTIONS[number]>("all")
   const [priorityFilter, setPriorityFilter] = useState<typeof PRIORITY_OPTIONS[number]>("all")
   const [searchTerm, setSearchTerm] = useState("")
@@ -57,7 +65,7 @@ export function TicketList({ tickets }: { tickets: TicketListItem[] }) {
       <CardHeader className="border-b">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>My tickets</CardTitle>
+            <CardTitle>{title}</CardTitle>
             <CardDescription>
               {ticketCountLabel} · Filter by status, priority, or search by title.
             </CardDescription>
@@ -96,7 +104,7 @@ export function TicketList({ tickets }: { tickets: TicketListItem[] }) {
       <CardContent>
         {tickets.length === 0 ? (
           <div className="grid h-44 place-items-center rounded-2xl border border-dashed bg-muted/30 text-sm text-muted-foreground">
-            No tickets created yet. Use the form to create your first ticket.
+            {emptyMessage}
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="grid h-44 place-items-center rounded-2xl border border-dashed bg-muted/30 text-sm text-muted-foreground">

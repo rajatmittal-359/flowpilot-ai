@@ -56,6 +56,7 @@ export default async function DashboardPage() {
     (await getDashboardStatsForActor(user)) ?? {
       total: 0,
       open_tickets: 0,
+      in_progress_tickets: 0,
       resolved_tickets: 0,
       high_priority_tickets: 0,
       ai_analyzed_tickets: 0,

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { getSessionFromRequest } from "@/lib/auth"
+import { findUserById } from "@/services/auth"
 import { updateTicketStatusSchema } from "@/types/tickets"
-import { updateTicketStatusForUser } from "@/services/tickets"
+import { updateTicketStatusForActor } from "@/services/tickets"
 
 export async function PATCH(
   req: NextRequest,
@@ -12,6 +13,14 @@ export async function PATCH(
     const session = await getSessionFromRequest(req)
 
     if (!session) {
+      return NextResponse.json(
+        { message: "Authentication required." },
+        { status: 401 }
+      )
+    }
+
+    const actor = await findUserById(session.userId)
+    if (!actor) {
       return NextResponse.json(
         { message: "Authentication required." },
         { status: 401 }
@@ -34,20 +43,23 @@ export async function PATCH(
       )
     }
 
-    const updated = await updateTicketStatusForUser(
-      session.userId,
-      ticketId,
-      parsed.data.status
-    )
+    const result = await updateTicketStatusForActor(actor, ticketId, parsed.data.status)
 
-    if (!updated) {
+    if (result.status === "ticket_not_found") {
       return NextResponse.json(
         { message: "Ticket not found or unauthorized." },
         { status: 404 }
       )
     }
 
-    return NextResponse.json({ message: "Ticket status updated.", ticket: updated })
+    if (result.status === "forbidden") {
+      return NextResponse.json(
+        { message: "You do not have permission to update this ticket status." },
+        { status: 403 }
+      )
+    }
+
+    return NextResponse.json({ message: "Ticket status updated.", ticket: result.ticket })
   } catch (error) {
     console.error("Ticket status API error", error)
     return NextResponse.json(

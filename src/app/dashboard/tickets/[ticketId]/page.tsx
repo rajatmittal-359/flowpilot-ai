@@ -9,6 +9,7 @@ import { TicketAssignmentPanel } from "@/components/tickets/ticket-assignment-pa
 import { AiWorkspace } from "@/components/ai/ai-workspace"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SESSION_COOKIE_NAME } from "@/lib/auth"
+import { canUpdateTicketStatus } from "@/services/permissions"
 import { getCurrentUserFromToken } from "@/services/auth"
 import { getTicketByIdForActor } from "@/services/tickets"
 import type { TicketRow } from "@/types/db"
@@ -47,7 +48,8 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
     return notFound()
   }
 
-  const canUseRequesterTicketActions = ticket.created_by === user.id
+  const canUseAiWorkspace = ticket.created_by === user.id
+  const canUpdateStatus = canUpdateTicketStatus(user, ticket)
 
   return (
     <div className="space-y-6">
@@ -98,10 +100,12 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
             assigneeEmail={ticket.assignee_email}
             currentUserRole={user.role}
           />
-          {canUseRequesterTicketActions ? (
-            <>
+          {canUpdateStatus ? (
             <TicketStatusForm ticket={ticket as TicketRow} />
-            <AiWorkspace ticketId={ticket.id} />
+          ) : null}
+          {canUseAiWorkspace ? (
+            <>
+              <AiWorkspace ticketId={ticket.id} />
             </>
           ) : null}
         </div>
