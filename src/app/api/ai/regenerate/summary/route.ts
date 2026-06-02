@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { getSessionFromRequest } from "@/lib/auth"
-import { getTicketByIdForUser } from "@/services/tickets"
+import { findUserById } from "@/services/auth"
+import { getTicketByIdForActor } from "@/services/tickets"
 import { generateTicketWorkspace } from "@/lib/gemini"
 import {
   getAnalysisByTicketId,
@@ -20,7 +21,10 @@ export async function POST(req: NextRequest) {
     const parsed = ticketIdSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ message: "ticketId is required." }, { status: 400 })
 
-    const ticket = await getTicketByIdForUser(session.userId, parsed.data.ticketId)
+    const user = await findUserById(session.userId)
+    if (!user) return NextResponse.json({ message: "Authentication required." }, { status: 401 })
+
+    const ticket = await getTicketByIdForActor({ id: user.id, role: user.role }, parsed.data.ticketId)
     if (!ticket) return NextResponse.json({ message: "Ticket not found." }, { status: 404 })
 
     const ws = await generateTicketWorkspace(ticket)
