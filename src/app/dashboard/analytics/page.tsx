@@ -4,11 +4,11 @@ import { TrendingUpIcon, TrendingDownIcon, ActivityIcon, BarChart3Icon } from "l
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getCurrentUserFromToken } from "@/services/auth"
 import {
-  getAnalyticsMetrics,
-  getTicketsByPriority,
-  getTicketsByStatus,
-  getRecentTicketActivity,
-  getResolutionMetrics,
+  getAnalyticsMetricsForActor,
+  getTicketsByPriorityForActor,
+  getTicketsByStatusForActor,
+  getRecentTicketActivityForActor,
+  getResolutionMetricsForActor,
 } from "@/services/analytics"
 
 function priorityColor(priority: string) {
@@ -52,13 +52,15 @@ export default async function DashboardAnalyticsPage() {
     redirect("/login")
   }
 
+  const actor = { id: user.id, role: user.role }
+
   const [metrics, priorityDistribution, statusDistribution, recentActivity, resolutionMetrics] =
     await Promise.all([
-      getAnalyticsMetrics(user.id),
-      getTicketsByPriority(user.id),
-      getTicketsByStatus(user.id),
-      getRecentTicketActivity(user.id, 8),
-      getResolutionMetrics(user.id),
+      getAnalyticsMetricsForActor(actor),
+      getTicketsByPriorityForActor(actor),
+      getTicketsByStatusForActor(actor),
+      getRecentTicketActivityForActor(actor, 8),
+      getResolutionMetricsForActor(actor),
     ])
 
   const maxPriorityCount = getMaxCount(priorityDistribution.map((p) => p.count))
