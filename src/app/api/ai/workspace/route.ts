@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { getSessionFromRequest } from "@/lib/auth"
-import { getTicketWorkspaceForUser } from "@/services/ai"
+import { findUserById } from "@/services/auth"
+import { getTicketWorkspaceForActor } from "@/services/ai"
 import { ticketIdSchema } from "@/types/ai"
 
 export async function POST(req: NextRequest) {
@@ -9,11 +10,14 @@ export async function POST(req: NextRequest) {
     const session = await getSessionFromRequest(req)
     if (!session) return NextResponse.json({ message: "Authentication required." }, { status: 401 })
 
+    const actor = await findUserById(session.userId)
+    if (!actor) return NextResponse.json({ message: "Authentication required." }, { status: 401 })
+
     const body = await req.json()
     const parsed = ticketIdSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ message: "ticketId is required." }, { status: 400 })
 
-    const workspace = await getTicketWorkspaceForUser(session.userId, parsed.data.ticketId)
+    const workspace = await getTicketWorkspaceForActor(actor, parsed.data.ticketId)
     if (!workspace) return NextResponse.json({ message: "Ticket not found." }, { status: 404 })
 
     return NextResponse.json({ success: true, workspace })

@@ -48,7 +48,7 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
     return notFound()
   }
 
-  const canUseAiWorkspace = ticket.created_by === user.id
+  const canUseAiWorkspace = true
   const canUpdateStatus = canUpdateTicketStatus(user, ticket)
 
   return (
