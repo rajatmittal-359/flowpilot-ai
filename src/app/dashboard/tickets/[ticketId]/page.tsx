@@ -12,6 +12,10 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth"
 import { canUpdateTicketStatus } from "@/services/permissions"
 import { getCurrentUserFromToken } from "@/services/auth"
 import { getTicketByIdForActor } from "@/services/tickets"
+import { getCommentsForTicket } from "@/services/comments"
+import { getActivityForTicket } from "@/services/activity"
+import { CommentsSection } from "@/components/tickets/comments-section"
+import { ActivityTimeline } from "@/components/tickets/activity-timeline"
 import type { TicketRow } from "@/types/db"
 
 function formatDate(dateString: string) {
@@ -47,6 +51,9 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
   if (!ticket) {
     return notFound()
   }
+
+  const initialComments = await getCommentsForTicket(user, ticketId, 50)
+  const activityEntries = await getActivityForTicket(user, ticketId)
 
   const canUseAiWorkspace = true
   const canUpdateStatus = canUpdateTicketStatus(user, ticket)
@@ -90,6 +97,16 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
               </div>
             </CardContent>
           </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle>Comments</CardTitle>
+              <CardDescription>Team discussion for this ticket.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <CommentsSection ticketId={ticket.id} initialComments={initialComments} />
+            </CardContent>
+          </Card>
         </div>
 
         <div className="order-2 space-y-4 xl:order-none">
@@ -108,6 +125,15 @@ export default async function DashboardTicketDetailsPage({ params }: DashboardTi
               <AiWorkspace ticketId={ticket.id} />
             </>
           ) : null}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle>Activity</CardTitle>
+              <CardDescription>Assignment and status history.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <ActivityTimeline entries={activityEntries} />
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>

@@ -6,6 +6,7 @@ import {
   type PermissionActor,
 } from "@/services/permissions"
 import { getAssignableAgentById } from "@/services/users"
+import { logActivity } from "@/services/activity"
 import type { TicketRow } from "@/types/db"
 
 export type TicketStats = {
@@ -169,6 +170,7 @@ export async function assignTicketToAgent(
     return { status: "ticket_not_found" }
   }
 
+  logActivity(ticketId, actor.id, `Assigned to ${assignee.name}`)
   return { status: "assigned", ticket: updated }
 }
 
@@ -224,5 +226,6 @@ export async function updateTicketStatusForActor(
     return { status: "ticket_not_found" }
   }
 
+  logActivity(ticketId, actor.id, `Status changed to ${status}`)
   return { status: "updated", ticket: visibleUpdated }
 }
