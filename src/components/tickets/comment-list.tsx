@@ -1,17 +1,17 @@
 "use client"
 
 import React, { useState, useEffect, type RefObject } from "react"
-import type { CommentRow } from "@/types/db"
+import type { CommentWithAuthor } from "@/services/comments"
 import { formatDistanceToNowStrict } from "date-fns"
 
 interface CommentListProps {
-  initialComments: CommentRow[]
+  initialComments: CommentWithAuthor[]
   ticketId: number
   refreshRef?: RefObject<(() => void) | null>
 }
 
 export function CommentList({ initialComments, ticketId, refreshRef }: CommentListProps) {
-  const [comments, setComments] = useState<CommentRow[]>(initialComments ?? [])
+  const [comments, setComments] = useState<CommentWithAuthor[]>(initialComments ?? [])
 
   async function refresh() {
     try {
@@ -37,7 +37,7 @@ export function CommentList({ initialComments, ticketId, refreshRef }: CommentLi
           {comments.map((c) => (
             <div key={c.id} className="rounded-lg border bg-background p-3">
               <div className="flex items-start justify-between">
-                <div className="text-sm font-medium">{c.user_id ? `User #${c.user_id}` : "Unknown"}</div>
+                <div className="text-sm font-medium">{c.author_name ?? "Unknown"}</div>
                 <div className="text-xs text-muted-foreground">{formatDistanceToNowStrict(new Date(c.created_at))} ago</div>
               </div>
               <div className="mt-2 text-sm text-foreground whitespace-pre-wrap">{c.content}</div>

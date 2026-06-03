@@ -23,7 +23,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
   { label: "Tickets", href: "/dashboard/tickets", icon: LifeBuoyIcon },
-  { label: "Customers", href: "/dashboard/customers", icon: UsersIcon },
+  { label: "Agents", href: "/dashboard/agents", icon: UsersIcon },
   { label: "AI Assistant", href: "/dashboard/assistant", icon: BotIcon },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3Icon },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon },

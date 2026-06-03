@@ -32,6 +32,10 @@ export function canViewTicket(actor: PermissionActor, ticket: Pick<TicketRow, "c
   return ticket.created_by === actor.id
 }
 
+export function canUseAiWorkspace(actor: PermissionActor) {
+  return isAdmin(actor) || isAgent(actor)
+}
+
 export function getTicketVisibilityCondition(
   actor: PermissionActor,
   options: { tableAlias?: string; parameterOffset?: number } = {}

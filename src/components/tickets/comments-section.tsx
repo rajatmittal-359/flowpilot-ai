@@ -1,13 +1,13 @@
 "use client"
 
 import { useRef } from "react"
-import type { CommentRow } from "@/types/db"
+import type { CommentWithAuthor } from "@/services/comments"
 import { CommentList } from "@/components/tickets/comment-list"
 import { CommentForm } from "@/components/tickets/comment-form"
 
 interface CommentsSectionProps {
   ticketId: number
-  initialComments: CommentRow[]
+  initialComments: CommentWithAuthor[]
 }
 
 export function CommentsSection({ ticketId, initialComments }: CommentsSectionProps) {

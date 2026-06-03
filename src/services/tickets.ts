@@ -7,6 +7,8 @@ import {
 } from "@/services/permissions"
 import { getAssignableAgentById } from "@/services/users"
 import { logActivity } from "@/services/activity"
+import { sendEmail } from "@/lib/email"
+import { findUserById } from "@/services/auth"
 import type { TicketRow } from "@/types/db"
 
 export type TicketStats = {
@@ -171,6 +173,11 @@ export async function assignTicketToAgent(
   }
 
   logActivity(ticketId, actor.id, `Assigned to ${assignee.name}`)
+  sendEmail({
+    to: assignee.email,
+    subject: `[FlowPilot] Ticket assigned to you: ${updated.title}`,
+    text: `Hi ${assignee.name},\n\nTicket #${ticketId} has been assigned to you.\n\nTitle: ${updated.title}\nPriority: ${updated.priority}\n\nLog in to FlowPilot to review and action this ticket.`,
+  })
   return { status: "assigned", ticket: updated }
 }
 
@@ -227,5 +234,20 @@ export async function updateTicketStatusForActor(
   }
 
   logActivity(ticketId, actor.id, `Status changed to ${status}`)
+
+  if (status === "resolved") {
+    const creator = await findUserById(visibleUpdated.created_by).catch((err) => {
+      console.warn("[email] failed to look up ticket creator for resolution email", { ticketId, err })
+      return null
+    })
+    if (creator) {
+      sendEmail({
+        to: creator.email,
+        subject: `[FlowPilot] Your ticket has been resolved: ${visibleUpdated.title}`,
+        text: `Hi ${creator.name},\n\nYour support ticket has been marked as resolved.\n\nTitle: ${visibleUpdated.title}\nTicket #${ticketId}\n\nLog in to FlowPilot to review the resolution or reopen if needed.`,
+      })
+    }
+  }
+
   return { status: "updated", ticket: visibleUpdated }
 }
